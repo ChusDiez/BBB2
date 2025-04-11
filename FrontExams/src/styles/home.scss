@@ -1,0 +1,22 @@
+.card-1 {
+  background-color: #5A69FD1A;
+  .circle {
+    background-color: #5A69FD;
+  }
+}
+.card-2 {
+  background-color: #45A07F1A;
+  .circle {
+    background-color: #45A07F;
+  }
+}
+.card-3 {
+  background-color: #0082A91A;
+  .circle {
+    background-color: #0082A9;
+  }
+}
+.card-1, .card-2, .card-3 {
+  min-width: 250px;
+  // max-width: 350px;
+}

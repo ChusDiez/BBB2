@@ -1,0 +1,33 @@
+.historic {
+  .badge-topic {
+    color: #5A69FD;
+    background-color: #5a69fd1A;
+    border: 0.5px solid #5A69FD;
+  }
+  .badge-multiple {
+    color: #45A07F;
+    background-color: #45A07F1A;
+    border: 0.5px solid #45A07F;
+  }
+  .badge-block {
+    color: #0082A9;
+    background-color: #0082A91A;
+    border: 0.5px solid #0082A9;
+  }
+}
+
+thead th {
+  font-weight: 500;
+  color: #555564;
+  font-size: 14px;
+}
+tbody {
+  --bs-table-hover-bg: #F4F6FA;
+  td {
+    color: #6d6d82;
+    font-weight: 300;
+  }
+}
+.table>:not(caption)>*>* {
+  padding: 0.8rem 0.5rem;
+}

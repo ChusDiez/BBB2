@@ -1,0 +1,16 @@
+.admin {
+  table {
+    --bs-table-bg: transparent;
+    tbody {
+      --bs-table-hover-bg: #eaeff8;
+    }
+  }
+}
+
+.add-question {
+  .form-control {
+    color: #6d6d82;
+    font-weight: 400;
+    font-size: 0.875rem;
+  }
+}

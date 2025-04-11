@@ -1,0 +1,43 @@
+.results, .admin, .historic {
+  table {
+    --bs-table-bg: transparent;
+    tbody {
+      --bs-table-hover-bg: #eaeff8;
+    }
+  }
+}
+
+.exclude-exams {
+  .form-check-input:checked {
+    background-color: #ae2b2b !important;
+    border-color: #ae2b2b;
+  }
+  .form-check-input {
+    &:focus {
+      box-shadow: none;
+      &:not(:checked) {
+        border-color: #dee2e6;
+      }
+    }
+    &:hover:not(:checked) {
+      background-color: #fafafa;
+    }
+  }
+}
+
+.radio-btn {
+  background-color: #f1f1f1;
+  border-radius: 24px;
+  .btn-amount {
+    padding: 4px;
+    border-radius: 24px;
+    border: none;
+    &.active {
+      background-color: var(--action-button);
+      color: white;
+    }
+    &:hover:not(.active) {
+      background-color: #0082a932;
+    }
+  }
+}
