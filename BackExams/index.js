@@ -25,5 +25,6 @@ app.get('/', (req, res) => {
 
 await startTables();
 app.listen(PORT, async () => {
+  // eslint-disable-next-line no-console
   console.log(`Running on http://localhost:${PORT}`);
 });
