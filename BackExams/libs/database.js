@@ -1,26 +1,25 @@
 import { Sequelize } from 'sequelize';
+import path from 'path';
+import dotenv from 'dotenv';
+dotenv.config({ path: path.join(path.resolve(), '..', '.env') });
 
-import config from '../config/config.js';
-
-const pool = new Sequelize(
-  config.dbName,
-  encodeURIComponent(config.dbUser),
-  encodeURIComponent(config.dbPassword),
-  {
-    pool: {
-      max: 5,
-      min: 0,
-    },
-    host: config.dbHost,
-    port: config.dbPort,
-    dialect: 'mysql',
+/**
+ * One single Sequelize instance pointing to Supabase (PostgreSQL).
+ * Uses DATABASE_URL from .env and enforces SSL, as required by Supabase.
+ */
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: { require: true, rejectUnauthorized: false },
   },
-);
+  logging: false, // disable SQL logs; set to console.log to debug
+});
 
 try {
-  await pool.authenticate();
+  await sequelize.authenticate();
+  // console.log('✅ Connection to Supabase established successfully.');
 } catch (error) {
-  console.error('Unable to connect to the database:', error);
+  // console.error('❌ Unable to connect to Supabase:', error);
 }
 
-export default pool;
+export default sequelize;
