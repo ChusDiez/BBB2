@@ -12,6 +12,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint:check": "eslint .",
     "lint:fix": "eslint --fix .",
+    "clean:linebreaks": "node --es-module-specifier-resolution=node scripts/clean-line-breaks.js",
     "alter": "node utils/alterQuestions"
 },
 "keywords": [],

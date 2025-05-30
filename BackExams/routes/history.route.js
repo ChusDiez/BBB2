@@ -1,3 +1,4 @@
+// BackExams/routes/history.route.js
 /* eslint-disable consistent-return */
 import express from 'express';
 import HistoricService from '../services/historic.services.js';
@@ -24,11 +25,14 @@ router.get('/download', async (req, res, next) => {
   try {
     const { name, questions: questionIds } = await historicService.getRecordById(historicId);
     const questions = await questionService.recreateExamQuestions(questionIds);
+    
     if (type === 'csv') {
       const path = await examService.createCsvExam(questions);
       res
-        .setHeader('Content-Type', 'text/csv')
-        .status(200).download(path, `${name}.csv`, () => {
+        .setHeader('Content-Type', 'text/csv; charset=utf-8')
+        .setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(name)}.csv"`)
+        .status(200)
+        .download(path, `${name}.csv`, () => {
           examService.removeExam(path);
         });
     }
@@ -36,8 +40,10 @@ router.get('/download', async (req, res, next) => {
       const hasFeedback = feedback === 'true';
       const path = await examService.createDocExam(questions, hasFeedback);
       res
-        .setHeader('Content-Type', 'application/msword')
-        .status(200).download(path, `${name}.docx`, () => {
+        .setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        .setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(name)}.docx"`)
+        .status(200)
+        .download(path, `${name}.docx`, () => {
           examService.removeExam(path);
         });
     }
