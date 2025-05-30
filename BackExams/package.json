@@ -3,17 +3,18 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node --es-module-specifier-resolution=node index.js ",
-    "start:dev": "nodemon --es-module-specifier-resolution=node index.js",
+"main": "index.js",
+"scripts": {
+    "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node index.js",
+    "start:dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 nodemon --es-module-specifier-resolution=node index.js",
+    "start:prod": "node --es-module-specifier-resolution=node index.js",
     "migrate": "node --es-module-specifier-resolution=node migration.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint:check": "eslint .",
     "lint:fix": "eslint --fix .",
     "alter": "node utils/alterQuestions"
-  },
-  "keywords": [],
+},
+"keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
