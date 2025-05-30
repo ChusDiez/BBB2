@@ -13,6 +13,7 @@
     "lint:check": "eslint .",
     "lint:fix": "eslint --fix .",
     "clean:linebreaks": "node --es-module-specifier-resolution=node scripts/clean-line-breaks.js",
+    "debug:search": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/debug-search.js",
     "alter": "node utils/alterQuestions"
 },
 "keywords": [],
