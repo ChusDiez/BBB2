@@ -78,7 +78,7 @@ export default function Historic() {
                 </td>
                 <td className="rounded-end-3">
                   <div className="d-flex justify-content-end gap-3 mx-3">
-                    <div className="dropdown">
+                    <div className="dropdown position-static">
                       <button
                         className="btn squared"
                         type="button"
@@ -87,11 +87,11 @@ export default function Historic() {
                       >
                         <i className="bi bi-three-dots" />
                       </button>
-                      <ul className="dropdown-menu">
+                      <ul className="dropdown-menu dropdown-menu-end">
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3000/api/v1/historic/download?id=${idExam}&type=csv`}
+                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=csv`}
                           >
                             CSV
                           </a>
@@ -99,7 +99,7 @@ export default function Historic() {
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3000/api/v1/historic/download?id=${idExam}&type=doc`}
+                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=doc`}
                           >
                             DOC
                           </a>
@@ -107,7 +107,7 @@ export default function Historic() {
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3000/api/v1/historic/download?id=${idExam}&type=doc&feedback=true`}
+                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=doc&feedback=true`}
                           >
                             DOC + feedback
                           </a>
