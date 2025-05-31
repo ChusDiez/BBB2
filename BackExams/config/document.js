@@ -12,6 +12,7 @@ import {
   WidthType,
 } from 'docx';
 import fs from 'fs';
+import { htmlToDocxElements } from '../utils/htmlToDocx.js';
 
 const numberingConfig = {
   reference: 'numbering',
@@ -80,6 +81,97 @@ function createCorrectAnswerRow(correctAnswer) {
   });
 }
 
+/**
+ * Detecta si un texto contiene HTML
+ * @param {string} text - El texto a verificar
+ * @returns {boolean} - True si contiene HTML, false si no
+ */
+function containsHtml(text) {
+  if (!text) return false;
+  // Buscar tags HTML comunes
+  const htmlRegex = /<(strong|b|em|i|u|mark|span|br|p|ul|ol|li|blockquote|code)[^>]*>|<\/(strong|b|em|i|u|mark|span|p|ul|ol|li|blockquote|code)>/i;
+  return htmlRegex.test(text);
+}
+
+/**
+ * Crea una fila de feedback que puede ser HTML o texto plano
+ * @param {string} feedback - El feedback a mostrar
+ * @returns {TableRow} - La fila de la tabla
+ */
+function createFeedbackRow(feedback) {
+  if (!feedback) {
+    return new TableRow({
+      children: [
+        new TableCell({
+          children: [new Paragraph({ text: 'Retroalimentación: Sin información adicional' })],
+        }),
+      ],
+    });
+  }
+
+  // Si contiene HTML, usar el convertidor
+  if (containsHtml(feedback)) {
+    const htmlElements = htmlToDocxElements(feedback);
+    
+    // Si el convertidor no devuelve elementos, usar texto plano como fallback
+    if (htmlElements.length === 0) {
+      return new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Retroalimentación: ', bold: true }),
+                  new TextRun({ text: feedback.replace(/<[^>]*>/g, '') })
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+    }
+
+    // Crear la celda con el contenido HTML convertido
+    const feedbackElements = [
+      new Paragraph({
+        children: [new TextRun({ text: 'Retroalimentación:', bold: true })],
+        spacing: { after: 120 }
+      }),
+      ...htmlElements
+    ];
+
+    return new TableRow({
+      children: [
+        new TableCell({
+          children: feedbackElements,
+          margins: {
+            top: 200,
+            bottom: 200,
+            left: 200,
+            right: 200,
+          },
+        }),
+      ],
+    });
+  } else {
+    // Texto plano - comportamiento original
+    return new TableRow({
+      children: [
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Retroalimentación: ', bold: true }),
+                new TextRun({ text: feedback })
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  }
+}
+
 function createBaseRow(property) {
   return new TableRow({
     children: [
@@ -146,10 +238,11 @@ function createRows(questions, hasFeedback) {
     const rowOptionC = createNumberedRow(optionC, 1);
     const emptyRow = createEmptyRow();
     rows.push(title, rowOptionA, rowOptionB, rowOptionC, emptyRow);
-    if (hasFeedback) {
+    
+    if (hasFeedback && feedback) {
       const correctAnswerText = createCorrectAnswerRow(correctAnswer);
-      const feedbackText = createBaseRow(`Retroalimentación: ${feedback ?? ''}`);
-      rows.push(correctAnswerText, feedbackText, emptyRow);
+      const feedbackRow = createFeedbackRow(feedback);
+      rows.push(correctAnswerText, feedbackRow, emptyRow);
     }
   });
   return rows;
