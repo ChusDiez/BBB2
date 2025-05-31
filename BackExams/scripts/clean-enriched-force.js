@@ -63,6 +63,14 @@ async function cleanEnrichedFeedbacksForce() {
       
       // 8. Eliminar saltos de línea o <br> al principio
       cleaned = cleaned.replace(/^[\s\n]*(<br\s*\/?>[\s\n]*)*/i, '');
+
+      // 10. Sustituir <br> y </p> por saltos de línea y eliminar cualquier etiqueta HTML restante
+      cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
+      cleaned = cleaned.replace(/<\/p>/gi, '\n');
+      cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+      // 11. Comprimir saltos de línea múltiples
+      cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
       
       // 9. Trim final
       cleaned = cleaned.trim();

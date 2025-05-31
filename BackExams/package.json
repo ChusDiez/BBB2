@@ -24,6 +24,7 @@
     "enrich:force-test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/force-enrich-all.js openai 5",
     "clean:duplication": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/clean-feedback-duplication.js",
     "fix:html-format": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-html-format.js",
+    "clean:prefixes": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/clean-feedback-prefixes.js",
     "fix:invisible-text": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-invisible-text.js"
   },
   "keywords": [],

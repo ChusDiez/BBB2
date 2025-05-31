@@ -1,6 +1,6 @@
 // FrontExams/src/routes/Admin.tsx
 /* eslint-disable react/no-array-index-key */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, Fragment } from 'react';
 import DOMPurify from 'dompurify';
 import { useModalContext } from '../context/ModalContext';
 import useQuestions from '../hooks/useQuestions';
@@ -25,12 +25,12 @@ export default function Admin() {
   const [availableProviders, setAvailableProviders] = useState<any>({});
   const [showPreviewFor, setShowPreviewFor] = useState<number | null>(null);
 
-  // Cargar proveedores disponibles
-  useState(() => {
-    EnrichmentAPI.getProviders().then(({ data }) => {
-      setAvailableProviders(data);
-    }).catch(console.error);
-  });
+  // Cargar proveedores disponibles solo una vez
+  useEffect(() => {
+    EnrichmentAPI.getProviders()
+      .then(({ data }) => setAvailableProviders(data))
+      .catch(console.error);
+  }, []);
 
   // Toggle selección de pregunta
   const toggleQuestionSelection = useCallback((questionId: number) => {
@@ -85,6 +85,8 @@ export default function Admin() {
 
       if (data.success) {
         alert(`✅ Se enriquecieron exitosamente ${data.successfullyEnriched} de ${data.totalProcessed} preguntas`);
+        // ⚠️ Parche rápido: recargar la página para refrescar los nuevos feedbacks
+        window.location.reload();
         setSelectedQuestions(new Set());
         // Las preguntas se actualizarán automáticamente desde el store
       }
@@ -256,7 +258,7 @@ export default function Admin() {
             </thead>
             <tbody>
               {questions.map((question) => (
-                <>
+                <Fragment key={question.id}>
                   <tr
                     key={question.id}
                     className={selectedQuestions.has(question.id) ? 'table-active' : ''}
@@ -344,15 +346,17 @@ export default function Admin() {
                           </div>
                           <div 
                             className="feedback-preview border bg-white p-3 rounded"
-                            dangerouslySetInnerHTML={{ 
-                              __html: DOMPurify.sanitize(question.feedback) 
+                            dangerouslySetInnerHTML={{
+                              __html: /<[^>]+>/.test(question.feedback || '')
+                                ? DOMPurify.sanitize(question.feedback || '')
+                                : DOMPurify.sanitize((question.feedback || '').replace(/\n/g, '<br />'))
                             }}
                           />
                         </div>
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
