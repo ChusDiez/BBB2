@@ -1,4 +1,4 @@
-// BackExams/services/aiEnrichment.services.js - VERSIÓN MEJORADA
+// BackExams/services/aiEnrichment.services.js - COLORES MEJORADOS PARA WORD
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
@@ -44,26 +44,26 @@ class AIEnrichmentService {
       return originalFeedback;
     }
 
-    const prompt = `Eres un asistente experto en educación y diseño de documentos. Tu tarea es enriquecer el siguiente feedback de una pregunta de examen con HTML semánticamente estructurado y visualmente atractivo.
+    const prompt = `Eres un asistente experto en educación y diseño de documentos. Tu tarea es enriquecer el siguiente feedback de una pregunta de examen con HTML semánticamente estructurado y optimizado para documentos Word.
 
 PREGUNTA: ${question}
 RESPUESTA CORRECTA: ${correctAnswer}
 FEEDBACK ORIGINAL: ${originalFeedback}
 
-INSTRUCCIONES DE FORMATO:
+INSTRUCCIONES DE FORMATO MEJORADAS PARA WORD:
 1. NO cambies, añadas o elimines ninguna palabra del texto original
-2. Aplica estos estilos HTML específicos según el tipo de contenido:
+2. Aplica estos estilos HTML optimizados para documentos Word:
 
-ELEMENTOS ESTRUCTURALES:
-- Leyes completas (Ley 8/2011, LO 4/2015, RD 704/2011): <span style="background-color: #fff3cd; padding: 1px 4px; border-radius: 2px;">TEXTO</span>
-- Artículos específicos (art. 36.23, artículo 4.3): <span style="color: #0066cc; text-decoration: underline;">TEXTO</span>
-- Conceptos técnicos clave: <span style="color: #28a745; text-decoration: underline;">TEXTO</span>
+ELEMENTOS ESTRUCTURALES (colores oscuros para buena legibilidad):
+- Leyes completas (Ley 8/2011, LO 4/2015, RD 704/2011): <span style="background-color: #ffffcc; padding: 1px 4px; border-radius: 2px; font-weight: 600;">TEXTO</span>
+- Artículos específicos (art. 36.23, artículo 4.3): <span style="color: #003399; text-decoration: underline; font-weight: 600;">TEXTO</span>
+- Conceptos técnicos clave: <span style="color: #006600; text-decoration: underline; font-weight: 500;">TEXTO</span>
 
 ELEMENTOS SEMÁNTICOS:
-- Definiciones importantes: <span style="background-color: #f8f9ff; padding: 1px 4px; border-radius: 2px; font-weight: 500;">TEXTO</span>
-- Datos numéricos/estadísticas/porcentajes: <span style="color: #fd7e14; font-weight: 600;">TEXTO</span>
-- Elementos críticos/excepciones: <span style="color: #dc3545; font-weight: 600;">TEXTO</span>
-- Términos muy importantes destacados por contexto: <mark style="background-color: #e9ecef; padding: 1px 3px;">TEXTO</mark>
+- Definiciones importantes: <span style="background-color: #f0f8ff; padding: 1px 4px; border-radius: 2px; font-weight: 500;">TEXTO</span>
+- Datos numéricos/estadísticas/porcentajes: <span style="color: #cc5500; font-weight: 700;">TEXTO</span>
+- Elementos críticos/excepciones: <span style="color: #990000; font-weight: 700;">TEXTO</span>
+- Términos muy importantes destacados por contexto: <mark style="background-color: #f5f5f5; padding: 1px 3px; font-weight: 500;">TEXTO</mark>
 
 ELEMENTOS BÁSICOS:
 - Texto muy importante: <strong>TEXTO</strong>
@@ -71,21 +71,28 @@ ELEMENTOS BÁSICOS:
 - Subrayado simple: <u>TEXTO</u>
 - Saltos de línea: <br> donde sea necesario
 - Listas: <ul><li>TEXTO</li></ul> si hay enumeraciones
-- Citas textuales: <blockquote style="border-left: 3px solid #0066cc; padding-left: 10px; margin: 5px 0; font-style: italic;">TEXTO</blockquote>
+- Citas textuales: <blockquote style="border-left: 3px solid #003399; padding-left: 10px; margin: 5px 0; font-style: italic;">TEXTO</blockquote>
 
-3. SIEMPRE inicia el feedback con: <span style="color: #0066cc; text-decoration: underline; font-weight: bold;">Retroalimentación:</span>
+3. SIEMPRE inicia el feedback con: <span style="color: #003399; text-decoration: underline; font-weight: bold;">Retroalimentación:</span>
 
 4. Mantén la estructura y párrafos originales, usando <br> para saltos de línea simples
 
-5. Si hay referencias cruzadas entre artículos, úsalas consistentemente
+5. EVITA colores muy claros como #fff3cd que se ven mal en Word. Usa colores más oscuros y contrastados.
 
-EJEMPLOS DE APLICACIÓN:
-- "Ley 8/2011" → <span style="background-color: #fff3cd; padding: 1px 4px; border-radius: 2px;">Ley 8/2011</span>
-- "art. 36.23" → <span style="color: #0066cc; text-decoration: underline;">art. 36.23</span>
-- "50%" → <span style="color: #fd7e14; font-weight: 600;">50%</span>
-- "operador crítico" → <span style="color: #28a745; text-decoration: underline;">operador crítico</span>
+PALETA DE COLORES OPTIMIZADA PARA WORD:
+- Azul oscuro: #003399 (para artículos y títulos)
+- Verde oscuro: #006600 (para conceptos técnicos)
+- Naranja oscuro: #cc5500 (para datos numéricos)
+- Rojo oscuro: #990000 (para elementos críticos)
+- Fondos claros pero legibles: #ffffcc, #f0f8ff, #f5f5f5
 
-IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin formato adicional, sin bloques de código markdown, sin comillas, sin explicaciones. Solo el HTML puro y semánticamente estructurado.`;
+EJEMPLOS DE APLICACIÓN MEJORADOS:
+- "Ley 8/2011" → <span style="background-color: #ffffcc; padding: 1px 4px; border-radius: 2px; font-weight: 600;">Ley 8/2011</span>
+- "art. 36.23" → <span style="color: #003399; text-decoration: underline; font-weight: 600;">art. 36.23</span>
+- "50%" → <span style="color: #cc5500; font-weight: 700;">50%</span>
+- "operador crítico" → <span style="color: #006600; text-decoration: underline; font-weight: 500;">operador crítico</span>
+
+IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin formato adicional, sin bloques de código markdown, sin comillas, sin explicaciones. Solo el HTML puro optimizado para Word.`;
 
     try {
       if (provider === 'anthropic' && this.anthropic) {
@@ -108,7 +115,7 @@ IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin formato adicional, sin bloques de c
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: 'Eres un asistente que enriquece texto con HTML semánticamente estructurado para documentos educativos. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown, sin comillas, sin explicaciones. Solo el HTML puro y bien estructurado.'
+            content: 'Eres un asistente que enriquece texto con HTML semánticamente estructurado para documentos educativos de Word. Usa colores oscuros y contrastados, evita colores muy claros. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown, sin comillas, sin explicaciones. Solo el HTML puro optimizado para Word.'
           }, {
             role: 'user',
             content: prompt

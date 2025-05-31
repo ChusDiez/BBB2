@@ -1,4 +1,4 @@
-// BackExams/utils/htmlToDocx.js - VERSIÓN MEJORADA
+// BackExams/utils/htmlToDocx.js - VERSIÓN CON COLORES MEJORADOS
 import { 
   Paragraph, 
   TextRun, 
@@ -82,7 +82,7 @@ export function htmlToDocxElements(html) {
 }
 
 /**
- * Parsea HTML inline con estilos semánticos avanzados
+ * Parsea HTML inline con estilos semánticos mejorados para Word
  * @param {string} html - HTML con formato inline
  * @returns {Array<TextRun>} - Array de TextRuns
  */
@@ -172,12 +172,12 @@ function parseInlineHtml(html) {
       
       // Aplicar color
       if (currentColor) {
-        runOptions.color = normalizeColor(currentColor);
+        runOptions.color = normalizeColorForWord(currentColor);
       }
       
-      // Aplicar resaltado/fondo
+      // Aplicar resaltado/fondo - MEJORADO para Word
       if (isHighlighted || currentBackground) {
-        const bgColor = normalizeBackgroundColor(currentBackground);
+        const bgColor = normalizeBackgroundForWord(currentBackground);
         if (bgColor) {
           runOptions.highlight = bgColor;
         }
@@ -234,54 +234,67 @@ function parseSpanStyle(spanTag) {
 }
 
 /**
- * Normaliza colores CSS para Word
+ * Normaliza colores CSS para Word - VERSIÓN MEJORADA
  * @param {string} color - Color en formato CSS
  * @returns {string} - Color en formato hexadecimal para Word
  */
-function normalizeColor(color) {
+function normalizeColorForWord(color) {
   const colorMap = {
-    // Colores del sistema de enriquecimiento
-    '#0066cc': '0066CC', // Azul para artículos
-    '#28a745': '28A745', // Verde para conceptos técnicos
-    '#fd7e14': 'FD7E14', // Naranja para datos numéricos
-    '#dc3545': 'DC3545', // Rojo para elementos críticos
+    // Colores del sistema de enriquecimiento - MEJORADOS para Word
+    '#0066cc': '0066CC', // Azul para artículos - BIEN
+    '#28a745': '006600', // Verde más oscuro para conceptos técnicos
+    '#fd7e14': 'CC5500', // Naranja más oscuro para datos numéricos  
+    '#dc3545': '990000', // Rojo más oscuro para elementos críticos
+    '#1565c0': '003399', // Azul más oscuro para leyes
     
     // Colores CSS estándar
-    'red': 'FF0000',
-    'green': '00FF00',
-    'blue': '0000FF',
-    'orange': 'FFA500',
-    'purple': '800080',
+    'red': '990000',
+    'green': '006600', 
+    'blue': '0066CC',
+    'orange': 'CC5500',
+    'purple': '660066',
     'black': '000000'
   };
   
-  // Si ya es hexadecimal, limpiarlo
+  // Si ya es hexadecimal, limpiarlo y verificar que sea legible
   if (color.startsWith('#')) {
-    return color.replace('#', '').toUpperCase();
+    let hex = color.replace('#', '').toUpperCase();
+    
+    // Verificar si es un color muy claro y oscurecerlo
+    if (hex === 'FFF3CD') { // El amarillo problemático
+      return '996600'; // Marrón dorado más legible
+    }
+    
+    return hex;
   }
   
   return colorMap[color] || '000000';
 }
 
 /**
- * Normaliza colores de fondo para highlight en Word
+ * Normaliza colores de fondo para highlight en Word - MEJORADO
  * @param {string} background - Color de fondo en formato CSS
  * @returns {string} - Color de highlight para Word
  */
-function normalizeBackgroundColor(background) {
+function normalizeBackgroundForWord(background) {
   if (!background) return null;
   
   const backgroundMap = {
-    '#fff3cd': 'yellow',      // Amarillo pastel para leyes
-    '#f8f9ff': 'lightBlue',   // Azul claro para definiciones
-    '#e9ecef': 'lightGray',   // Gris claro para términos importantes
-    '#d4edda': 'lightGreen',  // Verde claro
+    // COLORES MEJORADOS para mejor legibilidad en Word
+    '#fff3cd': 'yellow',      // Amarillo claro → Amarillo estándar 
+    '#f8f9ff': 'lightBlue',   // Azul muy claro → Azul claro estándar
+    '#e9ecef': 'lightGray',   // Gris muy claro → Gris claro estándar
+    '#d4edda': 'lightGreen',  // Verde muy claro → Verde claro estándar
+    '#e8f4fd': 'lightBlue',   // Azul pastel → Azul claro estándar
+    
+    // Mapeo directo
     'yellow': 'yellow',
     'lightgray': 'lightGray',
-    'lightblue': 'lightBlue'
+    'lightblue': 'lightBlue',
+    'lightgreen': 'lightGreen'
   };
   
-  return backgroundMap[background] || 'yellow';
+  return backgroundMap[background] || null;
 }
 
 export default htmlToDocxElements;
