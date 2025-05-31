@@ -22,6 +22,7 @@
     "diagnose": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/diagnose-feedbacks.js",
     "enrich:force": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/force-enrich-all.js",
     "enrich:force-test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/force-enrich-all.js openai 5",
+    "clean:duplication": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/clean-feedback-duplication.js",
     "alter": "node utils/alterQuestions"
   },
   "keywords": [],

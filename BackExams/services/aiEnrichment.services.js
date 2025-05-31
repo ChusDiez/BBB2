@@ -73,11 +73,9 @@ ELEMENTOS BÁSICOS:
 - Listas: <ul><li>TEXTO</li></ul> si hay enumeraciones
 - Citas textuales: <blockquote style="border-left: 3px solid #003399; padding-left: 10px; margin: 5px 0; font-style: italic;">TEXTO</blockquote>
 
-3. SIEMPRE inicia el feedback con: <span style="color: #003399; text-decoration: underline; font-weight: bold;">Retroalimentación:</span>
+3. Mantén la estructura y párrafos originales, usando <br> para saltos de línea simples
 
-4. Mantén la estructura y párrafos originales, usando <br> para saltos de línea simples
-
-5. EVITA colores muy claros como #fff3cd que se ven mal en Word. Usa colores más oscuros y contrastados.
+4. EVITA colores muy claros como #fff3cd que se ven mal en Word. Usa colores más oscuros y contrastados.
 
 PALETA DE COLORES OPTIMIZADA PARA WORD:
 - Azul oscuro: #003399 (para artículos y títulos)

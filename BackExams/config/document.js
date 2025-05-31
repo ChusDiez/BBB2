@@ -265,8 +265,107 @@ function createTable(rows) {
     },
   });
 }
+/**
+ * Crea una tabla compacta con las respuestas correctas
+ * @param {Array} questions - Array de preguntas
+ * @returns {Table} - Tabla con respuestas en 4 columnas
+ */
+function createAnswerKeyTable(questions) {
+  const rows = [];
+  const columnsPerRow = 4;
+  
+  // Crear encabezado
+  const headerRow = new TableRow({
+    children: [
+      new TableCell({
+        children: [new Paragraph({ 
+          children: [new TextRun({ text: 'RESPUESTAS CORRECTAS', bold: true })],
+          alignment: AlignmentType.CENTER 
+        })],
+        columnSpan: columnsPerRow,
+        shading: {
+          fill: 'E8F4FD'
+        }
+      })
+    ]
+  });
+  rows.push(headerRow);
+  
+  // Crear filas con respuestas (4 columnas por fila)
+  for (let i = 0; i < questions.length; i += columnsPerRow) {
+    const cells = [];
+    
+    for (let j = 0; j < columnsPerRow; j++) {
+      const questionIndex = i + j;
+      if (questionIndex < questions.length) {
+        const questionNum = questionIndex + 1;
+        const answer = questions[questionIndex].correctAnswer;
+        
+        cells.push(new TableCell({
+          children: [new Paragraph({
+            children: [
+              new TextRun({ text: `${questionNum}. `, bold: true }),
+              new TextRun({ text: answer, bold: true, color: '0066CC' })
+            ],
+            alignment: AlignmentType.CENTER
+          })],
+          width: {
+            size: 25,
+            type: WidthType.PERCENTAGE,
+          },
+          margins: {
+            top: 100,
+            bottom: 100,
+            left: 50,
+            right: 50,
+          }
+        }));
+      } else {
+        // Celda vacía si no hay más preguntas
+        cells.push(new TableCell({
+          children: [new Paragraph({ text: '' })],
+          width: {
+            size: 25,
+            type: WidthType.PERCENTAGE,
+          }
+        }));
+      }
+    }
+    
+    rows.push(new TableRow({ children: cells }));
+  }
+  
+  return new Table({
+    rows,
+    width: {
+      size: 100,
+      type: WidthType.PERCENTAGE,
+    },
+    borders: {
+      top: { size: 3, color: '0066CC' },
+      bottom: { size: 3, color: '0066CC' },
+      left: { size: 3, color: '0066CC' },
+      right: { size: 3, color: '0066CC' },
+      insideHorizontal: { size: 1, color: 'CCCCCC' },
+      insideVertical: { size: 1, color: 'CCCCCC' },
+    },
+  });
+}
 
-function createDoc(children) {
+function createDoc(children, answerKeyTable) {
+  const sections = [
+    addImages(),
+    children,
+  ];
+  
+  // Añadir tabla de respuestas al final si existe
+  if (answerKeyTable) {
+    sections.push(
+      new Paragraph({ text: '', spacing: { before: 400 } }), // Espacio antes de la tabla
+      answerKeyTable
+    );
+  }
+  
   return new Document({
     creator: 'Chus',
     title: 'Examen',
@@ -276,10 +375,7 @@ function createDoc(children) {
       ],
     },
     sections: [{
-      children: [
-        addImages(),
-        children,
-      ],
+      children: sections,
     }],
     styles: {
       default: {
@@ -303,7 +399,8 @@ function createDoc(children) {
 function createDocument(questions, hasFeedback) {
   const rows = createRows(questions, hasFeedback);
   const table = createTable(rows);
-  const doc = createDoc(table);
+  const answerKeyTable = createAnswerKeyTable(questions);
+  const doc = createDoc(table, answerKeyTable);
   return doc;
 }
 
