@@ -1,5 +1,11 @@
 /* eslint-disable default-param-last */
-import {
+/* eslint-disable max-len */
+import docx from 'docx';
+import fs from 'fs';
+import { htmlToDocxElements } from '../utils/htmlToDocx.js';
+
+// Extraer componentes de docx
+const {
   AlignmentType,
   Document,
   HeadingLevel,
@@ -10,9 +16,7 @@ import {
   TableRow,
   TextRun,
   WidthType,
-} from 'docx';
-import fs from 'fs';
-import { htmlToDocxElements } from '../utils/htmlToDocx.js';
+} = docx;
 
 const numberingConfig = {
   reference: 'numbering',

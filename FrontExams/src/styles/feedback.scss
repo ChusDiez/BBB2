@@ -1,18 +1,97 @@
-// FrontExams/src/styles/feedback.scss
+// FrontExams/src/styles/feedback.scss - VERSIÓN MEJORADA
 .feedback-preview {
   font-size: 0.9rem;
   line-height: 1.6;
   color: #333;
   
-  // Estilos para elementos HTML comunes en feedback
+  // === ELEMENTOS ESTRUCTURALES ===
+  
+  // Título "Retroalimentación" con estilo especial
+  span[style*="text-decoration: underline"][style*="font-weight: bold"] {
+    color: #0066cc !important;
+    text-decoration: underline !important;
+    text-decoration-color: #0066cc !important;
+    text-underline-offset: 2px;
+    font-weight: 700 !important;
+    font-size: 1.05em;
+  }
+  
+  // Referencias a leyes completas (fondo amarillo pastel)
+  span[style*="background-color: #fff3cd"] {
+    background-color: #fff3cd !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    border: 1px solid #f0e68c;
+    font-weight: 500;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95em;
+  }
+  
+  // Artículos específicos (subrayado azul)
+  span[style*="color: #0066cc"][style*="text-decoration: underline"] {
+    color: #0066cc !important;
+    text-decoration: underline !important;
+    text-decoration-color: #0066cc !important;
+    text-underline-offset: 2px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+  }
+  
+  // Conceptos técnicos clave (subrayado verde)
+  span[style*="color: #28a745"][style*="text-decoration: underline"] {
+    color: #28a745 !important;
+    text-decoration: underline !important;
+    text-decoration-color: #28a745 !important;
+    text-underline-offset: 2px;
+    font-weight: 600;
+  }
+  
+  // === ELEMENTOS SEMÁNTICOS ===
+  
+  // Definiciones importantes (fondo violeta claro)
+  span[style*="background-color: #f8f9ff"] {
+    background-color: #f8f9ff !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    border: 1px solid #e6e6ff;
+    font-weight: 500;
+  }
+  
+  // Datos numéricos/estadísticas (naranja)
+  span[style*="color: #fd7e14"][style*="font-weight: 600"] {
+    color: #fd7e14 !important;
+    font-weight: 700 !important;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 1.05em;
+  }
+  
+  // Elementos críticos (rojo)
+  span[style*="color: #dc3545"][style*="font-weight: 600"] {
+    color: #dc3545 !important;
+    font-weight: 700 !important;
+    font-size: 1.05em;
+  }
+  
+  // Términos destacados (fondo gris claro)
+  mark[style*="background-color: #e9ecef"] {
+    background-color: #e9ecef !important;
+    padding: 2px 4px !important;
+    border-radius: 2px !important;
+    border: 1px solid #dee2e6;
+    font-weight: 500;
+  }
+  
+  // === ELEMENTOS BÁSICOS MEJORADOS ===
+  
   strong, b {
     color: #0066cc;
-    font-weight: 600;
+    font-weight: 700;
   }
   
   em, i {
     color: #666;
     font-style: italic;
+    font-weight: 500;
   }
   
   u {
@@ -23,56 +102,65 @@
   
   mark {
     background-color: #fff3cd;
-    padding: 0.1em 0.3em;
+    padding: 2px 4px;
     border-radius: 3px;
+    border: 1px solid #f0e68c;
   }
   
   code {
-    background-color: #f0f0f0;
-    padding: 0.2em 0.4em;
+    background-color: #f8f9fa;
+    padding: 2px 6px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
     font-size: 0.9em;
     color: #d73502;
+    border: 1px solid #e9ecef;
   }
   
   blockquote {
     border-left: 4px solid #0066cc;
     margin: 1em 0;
-    padding-left: 1em;
-    color: #666;
+    padding: 0.8em 0 0.8em 1em;
+    color: #555;
     font-style: italic;
-  }
-  
-  ul, ol {
-    margin: 0.5em 0;
-    padding-left: 1.5em;
+    background-color: #f8f9ff;
+    border-radius: 0 4px 4px 0;
     
-    li {
-      margin: 0.3em 0;
+    &::before {
+      content: '"';
+      font-size: 1.5em;
+      color: #0066cc;
+      opacity: 0.5;
+    }
+    
+    &::after {
+      content: '"';
+      font-size: 1.5em;
+      color: #0066cc;
+      opacity: 0.5;
     }
   }
   
-  // Colores personalizados para span
-  span[style*="color: green"] {
-    color: #28a745 !important;
+  ul, ol {
+    margin: 0.8em 0;
+    padding-left: 1.8em;
+    
+    li {
+      margin: 0.4em 0;
+      line-height: 1.5;
+      
+      &::marker {
+        color: #0066cc;
+        font-weight: bold;
+      }
+    }
   }
   
-  span[style*="color: red"] {
-    color: #dc3545 !important;
-  }
-  
-  span[style*="color: blue"] {
-    color: #0066cc !important;
-  }
-  
-  span[style*="color: orange"] {
-    color: #fd7e14 !important;
-  }
+  // === MEJORAS TIPOGRÁFICAS ===
   
   // Párrafos
   p {
-    margin: 0.5em 0;
+    margin: 0.6em 0;
     
     &:first-child {
       margin-top: 0;
@@ -83,35 +171,105 @@
     }
   }
   
-  // Enlaces (si se usan)
+  // Enlaces
   a {
     color: #0066cc;
     text-decoration: underline;
+    text-decoration-color: #0066cc;
+    text-underline-offset: 2px;
     
     &:hover {
       color: #0052a3;
+      text-decoration-thickness: 2px;
     }
+  }
+  
+  // === EFECTOS ESPECIALES ===
+  
+  // Animación sutil para elementos interactivos
+  span[style*="background-color"],
+  mark,
+  code {
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  // Separadores visuales
+  hr {
+    border: none;
+    height: 2px;
+    background: linear-gradient(to right, #0066cc, transparent);
+    margin: 1.5em 0;
   }
 }
 
-// Estilos para el modal de preguntas
+// === ESTILOS PARA EL MODAL DE PREGUNTAS ===
 .add-question {
   .feedback-preview {
-    max-height: 400px;
+    max-height: 450px;
     overflow-y: auto;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #fff;
+    
+    // Scrollbar personalizada
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #0066cc;
+      border-radius: 4px;
+      
+      &:hover {
+        background: #0052a3;
+      }
+    }
   }
   
   textarea#feedback {
     font-family: 'Monaco', 'Courier New', monospace;
     font-size: 0.85rem;
+    line-height: 1.4;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    
+    &:focus {
+      border-color: #0066cc;
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
   }
 }
 
-// Animación para el botón de enriquecimiento
+// === ANIMACIONES Y EFECTOS ===
 .btn-outline-primary:has(.bi-stars) {
+  position: relative;
+  overflow: hidden;
+  
   &:hover {
     .bi-stars {
-      animation: sparkle 0.5s ease-in-out;
+      animation: sparkle 0.6s ease-in-out;
+    }
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: shine 0.6s ease-in-out;
     }
   }
 }
@@ -120,74 +278,84 @@
   0%, 100% {
     transform: scale(1) rotate(0deg);
   }
+  25% {
+    transform: scale(1.1) rotate(90deg);
+  }
   50% {
     transform: scale(1.2) rotate(180deg);
   }
+  75% {
+    transform: scale(1.1) rotate(270deg);
+  }
 }
 
-// Estilos para preguntas seleccionadas
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+// === ESTILOS PARA TABLAS ===
 .table-active {
-  background-color: rgba(0, 123, 255, 0.05) !important;
+  background-color: rgba(0, 123, 255, 0.08) !important;
+  border-left: 4px solid #0066cc;
   
   &:hover {
-    background-color: rgba(0, 123, 255, 0.1) !important;
-  }
-}
-// Agregar estos estilos mejorados a tu feedback.scss
-
-/* Referencias a leyes y artículos - MEJORADO */
-.law-reference {
-  color: #1565c0 !important; // Azul más profesional
-  font-weight: 600;
-  background-color: #e8f4fd;
-  padding: 2px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  display: inline-block;
-  border: 1px solid #bbdefb;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background-color: #dbeafe;
-    border-color: #90caf9;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: rgba(0, 123, 255, 0.12) !important;
   }
 }
 
-// Para números específicos dentro del texto
-.article-number {
-  color: #0d47a1 !important;
-  background-color: #e3f2fd;
-  padding: 1px 6px;
-  border-radius: 12px;
-  font-size: 0.9em;
-  font-weight: 700;
-  margin: 0 2px;
-}
-
-// Override para strong y code dentro del feedback
-.feedback-preview, .feedback-container {
-  strong {
-    &.law-reference {
-      color: #1565c0 !important; // Forzar azul en lugar de rojo
+// === RESPONSIVE ===
+@media (max-width: 768px) {
+  .feedback-preview {
+    font-size: 0.85rem;
+    
+    span[style*="background-color"],
+    mark,
+    code {
+      padding: 1px 3px !important;
+      font-size: 0.9em;
     }
     
-    // Para otros strong que no sean leyes
-    &:not(.law-reference) {
-      color: #0066cc;
+    blockquote {
+      padding-left: 0.6em;
+      margin: 0.6em 0;
     }
   }
+}
+/* 🎯 ESTILOS MEJORADOS PARA MÁXIMA VISIBILIDAD */
+.feedback-preview, .feedback-container {
+  span[style*="background-color: #FFD700"],
+  span[style*="background-color: #FFFF00"] {
+    background-color: #FFD700 !important;
+    color: #000000 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 700 !important;
+    border: 1px solid #DAA520 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+  }
   
-  // Si el IA usa code para artículos
-  code {
-    &.law-article {
-      background-color: #e8f4fd;
-      color: #1565c0 !important;
-      padding: 2px 6px;
-      font-family: inherit; // No usar monospace para leyes
-      font-weight: 600;
-      font-size: 1em;
-    }
+  span[style*="background-color: #87CEEB"] {
+    background-color: #87CEEB !important;
+    color: #000080 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 700 !important;
+    border: 1px solid #4682B4 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+  }
+  
+  span[style*="background-color: #98FB98"] {
+    background-color: #98FB98 !important;
+    color: #006400 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 600 !important;
+    border: 1px solid #32CD32 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
   }
 }

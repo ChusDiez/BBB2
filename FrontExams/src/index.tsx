@@ -10,6 +10,7 @@ import './styles/home.scss';
 import './styles/historic.scss';
 import './styles/admin.scss';
 import './styles/generator.scss';
+import './styles/feedback.scss'; // ← NUEVO ARCHIVO DE ESTILOS
 
 import reportWebVitals from './reportWebVitals';
 import store from './store/store';

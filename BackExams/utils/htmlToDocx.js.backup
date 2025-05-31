@@ -250,24 +250,23 @@ function normalizeColorForWord(color) {
   console.log(`🎨 Procesando color: "${color}"`); // Debug
   
   const colorMap = {
-    // 🎯 COLORES OPTIMIZADOS PARA MÁXIMA VISIBILIDAD EN WORD
-    '#FFD700': 'DAA520', // Oro → Oro oscuro
-    '#FFFF00': 'FFD700', // Amarillo puro → Oro
-    '#FFF3CD': 'FFD700', // Amarillo muy claro → Oro
-    '#87CEEB': '4682B4', // Azul cielo → Azul acero
-    '#E8F4FD': '1E90FF', // Azul muy claro → Azul dodger
-    '#98FB98': '228B22', // Verde claro → Verde bosque
-    '#FFE4E1': 'CD5C5C', // Rosa muy claro → Rojo indio
-    '#FFA500': 'FF8C00', // Naranja → Naranja oscuro
-    '#FF6347': 'B22222', // Rojo tomate → Rojo ladrillo
-    'gold': 'DAA520',
-    'yellow': 'FFD700',
-    'lightblue': '4682B4',
-    'lightgreen': '228B22',
-    'orange': 'FF8C00',
-    'red': '8B0000',
-    'blue': '000080',
-    'green': '006400'
+    // Colores del sistema de enriquecimiento - MEJORADOS para Word
+    '#0066cc': '0066CC', // Azul para artículos - BIEN
+    '#28a745': '006600', // Verde más oscuro para conceptos técnicos
+    '#fd7e14': 'CC5500', // Naranja más oscuro para datos numéricos  
+    '#dc3545': '990000', // Rojo más oscuro para elementos críticos
+    '#1565c0': '003399', // Azul más oscuro para leyes
+    
+    // Colores CSS estándar
+    'red': '990000',
+    'green': '006600', 
+    'blue': '0066CC',
+    'orange': 'CC5500',
+    'purple': '660066',
+    'black': '000000',
+    'white': 'FFFFFF',
+    'gray': '666666',
+    'grey': '666666'
   };
   
   // Normalizar string
