@@ -292,65 +292,99 @@ class ExamService {
     }
   }
 
-  // ✅ MÉTODO createCsvExam MEJORADO
-  async createCsvExam(questions) {
-    const path = this.createPath('csv');
+// En BackExams/services/exam.services.js
+// Versión más robusta que maneja todos los campos correctamente:
+
+async createCsvExam(questions) {
+  const path = this.createPath('csv');
+  
+  try {
+    console.log(`📊 Creando archivo CSV con ${questions.length} preguntas...`);
     
-    try {
-      console.log(`📊 Creando archivo CSV con ${questions.length} preguntas...`);
+    // Validar preguntas
+    this.validateQuestions(questions);
+    
+    // Función para procesar campos CSV según el estándar
+    const processCsvField = (field, forceQuote = false) => {
+      if (!field) return '';
       
-      // Validar preguntas
-      this.validateQuestions(questions);
+      // Convertir a string
+      let str = String(field);
       
-      // Crear el contenido del CSV con texto sanitizado
-      const results = questions.map(({
-        question,
-        optionA,
-        optionB,
-        optionC,
-        correctAnswer,
-        feedback,
-      }) => {
-        // Sanitizar todos los campos de texto
-        const cleanQuestion = this.sanitizeText(question);
-        const cleanOptionA = this.sanitizeText(optionA);
-        const cleanOptionB = this.sanitizeText(optionB);
-        const cleanOptionC = this.sanitizeText(optionC);
-        const cleanFeedback = feedback ? this.sanitizeText(feedback.replace(/<[^>]*>/g, '')) : '';
-        
-        return `*;${cleanQuestion};
+      // Eliminar solo caracteres de control invisibles
+      str = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+      str = str.replace(/[\u200B-\u200D\uFEFF]/g, '');
+      
+      // Determinar si necesita comillas
+      const needsQuotes = forceQuote || 
+                         str.includes(';') ||     // Contiene el delimitador
+                         str.includes('"') ||     // Contiene comillas
+                         str.includes('\n') ||    // Contiene saltos de línea
+                         str.includes('<');       // Contiene HTML
+      
+      if (needsQuotes) {
+        // Duplicar comillas internas según estándar CSV
+        str = str.replace(/"/g, '""');
+        // Encerrar entre comillas
+        return `"${str}"`;
+      }
+      
+      return str;
+    };
+    
+    // Crear el contenido del CSV
+    const results = questions.map(({
+      question,
+      optionA,
+      optionB,
+      optionC,
+      correctAnswer,
+      feedback,
+    }) => {
+      // Procesar cada campo apropiadamente
+      const cleanQuestion = processCsvField(question);
+      const cleanOptionA = processCsvField(optionA);
+      const cleanOptionB = processCsvField(optionB);
+      const cleanOptionC = processCsvField(optionC);
+      
+      // Feedback SIEMPRE entrecomillado porque contiene HTML
+      const cleanFeedback = processCsvField(feedback, true);
+      
+      return `*;${cleanQuestion};
 ;${cleanOptionA};${correctAnswer === 'A' ? 'x' : ''}
 ;${cleanOptionB};${correctAnswer === 'B' ? 'x' : ''}
 ;${cleanOptionC};${correctAnswer === 'C' ? 'x' : ''}
 @;${cleanFeedback}; \n`;
-      }).join('');
-      
-      // Añadir BOM para UTF-8 y escribir el archivo
-      const BOM = '\ufeff';
-      await fsPromise.writeFile(path, BOM + results, 'utf8');
-      
-      // Verificar archivo generado
-      const stats = await fsPromise.stat(path);
-      console.log(`✅ CSV creado exitosamente: ${path} (${stats.size} bytes)`);
-      
-      return path;
-      
-    } catch (error) {
-      console.error('❌ Error creando CSV:', error);
-      
-      // Limpiar archivo parcial
-      try {
-        if (fs.existsSync(path)) {
-          await fsPromise.unlink(path);
-        }
-      } catch (cleanupError) {
-        console.error('⚠️ Error limpiando CSV parcial:', cleanupError);
+    }).join('');
+    
+    // Añadir BOM para UTF-8 y escribir el archivo
+    const BOM = '\ufeff';
+    await fsPromise.writeFile(path, BOM + results, 'utf8');
+    
+    // Verificar archivo generado
+    const stats = await fsPromise.stat(path);
+    console.log(`✅ CSV creado exitosamente: ${path} (${stats.size} bytes)`);
+    console.log(`   Formato: CSV estándar con campos entrecomillados`);
+    console.log(`   Delimitador: punto y coma (;)`);
+    console.log(`   Codificación: UTF-8 con BOM`);
+    
+    return path;
+    
+  } catch (error) {
+    console.error('❌ Error creando CSV:', error);
+    
+    // Limpiar archivo parcial
+    try {
+      if (fs.existsSync(path)) {
+        await fsPromise.unlink(path);
       }
-      
-      throw new Error(`Error generando archivo CSV: ${error.message}`);
+    } catch (cleanupError) {
+      console.error('⚠️ Error limpiando CSV parcial:', cleanupError);
     }
+    
+    throw new Error(`Error generando archivo CSV: ${error.message}`);
   }
-
+}
   // ✅ MÉTODO removeExam MEJORADO
   async removeExam(path) {
     try {

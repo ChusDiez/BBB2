@@ -38,6 +38,90 @@ class AIEnrichmentService {
     
     return cleanedText.trim();
   }
+
+fixHtmlSyntax(html) {
+  if (!html) return html;
+  
+  let fixed = html;
+  
+  // Corregir comas por punto y coma en estilos
+  // Buscar todos los atributos style y corregirlos
+  fixed = fixed.replace(/style\s*=\s*['"]([^'"]+)['"]/gi, (match, styleContent) => {
+    // Dentro del style, reemplazar comas por punto y coma
+    let correctedStyle = styleContent
+      .replace(/,\s*(?=[\w-]+:)/g, '; ') // Coma seguida de propiedad CSS
+      .replace(/,\s*$/g, '') // Eliminar coma al final
+      .replace(/,\s*'/g, "'") // Eliminar coma antes de comilla de cierre
+      .replace(/;\s*;/g, ';') // Eliminar punto y coma duplicados
+      .trim();
+    
+    // Asegurar que termine sin punto y coma extra
+    if (correctedStyle.endsWith(';')) {
+      correctedStyle = correctedStyle.slice(0, -1);
+    }
+    
+    return `style="${correctedStyle}"`;
+  });
+  
+  // Cambiar comillas simples por dobles en atributos
+  fixed = fixed.replace(/(\w+)\s*=\s*'([^']*)'/g, '$1="$2"');
+  
+  return fixed;
+}
+
+// Luego, modifica el método enrichFeedback para usar esta corrección:
+async enrichFeedback(originalFeedback, question, correctAnswer, provider = 'openai') {
+  if (!originalFeedback || originalFeedback.trim().length === 0) {
+    return originalFeedback;
+  }
+
+  // ... código del prompt existente ...
+
+  try {
+    if (provider === 'anthropic' && this.anthropic) {
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 2500,
+        temperature: 0.2,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      });
+      
+      let enrichedText = response.content[0].text.trim();
+      enrichedText = this.cleanMarkdownCodeBlocks(enrichedText);
+      enrichedText = this.fixHtmlSyntax(enrichedText); // AÑADIR ESTA LÍNEA
+      return enrichedText;
+      
+    } else if (provider === 'openai' && this.openai) {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'system',
+          content: 'Eres un asistente que enriquece texto con HTML semánticamente estructurado para documentos educativos de Word. Usa colores oscuros y contrastados, evita colores muy claros. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown, sin comillas, sin explicaciones. Solo el HTML puro optimizado para Word. USA PUNTO Y COMA (;) para separar propiedades CSS, NO comas.'
+        }, {
+          role: 'user',
+          content: prompt
+        }],
+        temperature: 0.2,
+        max_tokens: 2500,
+      });
+      
+      let enrichedText = response.choices[0].message.content.trim();
+      enrichedText = this.cleanMarkdownCodeBlocks(enrichedText);
+      enrichedText = this.fixHtmlSyntax(enrichedText); // AÑADIR ESTA LÍNEA
+      return enrichedText;
+      
+    } else {
+      throw new Error(`Proveedor de IA ${provider} no configurado`);
+    }
+  } catch (error) {
+    console.error('Error al enriquecer feedback:', error);
+    return originalFeedback;
+  }
+}
+
   /**
    * Build the prompt that will be sent to the LLM.
    * Keeping the template in a single place makes it easier to tweak
@@ -53,6 +137,12 @@ CONTEXT INFORMATION (NO incluir en la salida):
 TEXTO A FORMATEAR:
 ${originalFeedback}
 
+IMPORTANTE SINTAXIS HTML:
+- USA PUNTO Y COMA (;) para separar propiedades CSS, NUNCA comas (,)
+- USA COMILLAS DOBLES (") para atributos, no comillas simples (')
+- NO pongas punto y coma al final del último estilo
+- Formato correcto: style="propiedad1: valor1; propiedad2: valor2"
+
 INSTRUCCIONES:
 1. Devuelve SOLO el feedback enriquecido con HTML.
 2. NO repitas la pregunta ni la respuesta correcta.
@@ -60,17 +150,27 @@ INSTRUCCIONES:
 4. NO incluyas prefijos como "PREGUNTA:", "RESPUESTA:", "FEEDBACK:".
 5. NO utilices bloques de código ni comillas.
 
-GUÍA DE ESTILO:
-- Leyes completas: <span style="background-color: #fff3cd; padding: 2px 4px;">TEXTO</span>
-- Artículos específicos: <span style="color: #0066cc; text-decoration: underline;">TEXTO</span>
-- Conceptos técnicos clave: <span style="color: #28a745; text-decoration: underline; font-weight: 600;">TEXTO</span>
-- Definiciones importantes: <span style="background-color: #f8f9ff; padding: 2px 4px;">TEXTO</span>
-- Datos numéricos / estadísticas / porcentajes: <span style="color: #fd7e14; font-weight: 600;">TEXTO</span>
-- Elementos críticos / excepciones: <span style="color: #dc3545; font-weight: 600;">TEXTO</span>
-- Términos muy importantes: <mark style="background-color: #e9ecef;">TEXTO</mark>
-- Texto importante: <strong>TEXTO</strong>
-- Énfasis: <em>TEXTO</em>
-- Subrayado: <u>TEXTO</u>
+ELEMENTOS ESTRUCTURALES (colores OSCUROS y CONTRASTADOS):
+- Leyes completas (Ley 8/2011, LO 4/2015, RD 704/2011): <span style="background-color: #FFD700; color: #000000; padding: 2px 6px; border-radius: 3px; font-weight: 700; border: 1px solid #DAA520">TEXTO</span>
+- Artículos específicos (art. 36.23, artículo 4.3): <span style="background-color: #87CEEB; color: #000080; padding: 2px 6px; border-radius: 3px; font-weight: 700; border: 1px solid #4682B4">TEXTO</span>
+- Conceptos técnicos clave: <span style="background-color: #98FB98; color: #006400; padding: 2px 6px; border-radius: 3px; font-weight: 600; border: 1px solid #32CD32">TEXTO</span>
+
+ELEMENTOS SEMÁNTICOS DESTACADOS:
+- Definiciones importantes: <span style="background-color: #FFE4E1; color: #8B0000; padding: 2px 6px; border-radius: 3px; font-weight: 600; border: 1px solid #CD5C5C">TEXTO</span>
+- Datos numéricos/estadísticas/porcentajes: <span style="background-color: #FFA500; color: #FFFFFF; padding: 2px 6px; border-radius: 3px; font-weight: 700; border: 1px solid #FF8C00">TEXTO</span>
+- Elementos críticos/excepciones: <span style="background-color: #FF6347; color: #FFFFFF; padding: 2px 6px; border-radius: 3px; font-weight: 700; border: 1px solid #DC143C">TEXTO</span>
+- Términos muy importantes: <mark style="background-color: #FFFF00; color: #000000; padding: 2px 6px; font-weight: 600; border: 1px solid #FFD700">TEXTO</mark>
+ELEMENTOS BÁSICOS MEJORADOS:
+- Texto muy importante: <strong style="color: #000080">TEXTO</strong>
+- Énfasis medio: <em style="color: #8B4513">TEXTO</em>
+- Subrayado simple: <u style="color: #4B0082; text-decoration-color: #4B0082">TEXTO</u>
+
+EJEMPLOS DE SINTAXIS CORRECTA:
+✅ CORRECTO: <span style="background-color: #FFD700; color: #000000; padding: 2px 6px">Ley 8/2011</span>
+❌ INCORRECTO: <span style='background-color: #FFD700, color: #000000, padding: 2px 6px,'>Ley 8/2011</span>
+
+✅ CORRECTO: <strong style="color: #000080">Presidencia</strong>
+❌ INCORRECTO: <strong style='color: #000080,'>Presidencia</strong>
 
 IMPORTANTE: Devuelve **SOLO** el HTML enriquecido, sin ningún otro texto.`;
   }

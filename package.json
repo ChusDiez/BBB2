@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "dompurify": "^3.2.6"
+    "dompurify": "^3.2.6",
+    "he": "^1.2.0"
   }
 }

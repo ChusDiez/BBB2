@@ -52,33 +52,39 @@ class UploadService {
     return sanitized;
   }
   
-  async transformData(path) {
-    const jsonData = [];
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(path, { encoding: 'utf8' })
-        .pipe(csv({
-          mapHeaders: ({ header }) => {
-            // Limpiar el header también (quitar espacios extras)
-            const cleanHeader = header.trim();
-            return mapHeader[cleanHeader] || cleanHeader;
-          },
-          mapValues: ({ value }) => (value === '' ? null : value),
-          separator: ';',
-          bom: true,
-        }))
-        .on('data', (data) => {
-          // Sanitizar cada fila de datos
-          const sanitizedData = this.sanitizeImportData(data);
-          jsonData.push(sanitizedData);
-        })
-        .on('end', () => {
-          resolve(jsonData);
-        })
-        .on('error', (e) => {
-          reject(e);
-        });
-    });
-  }
+// En BackExams/services/upload.services.js
+// Actualiza el método transformData para manejar correctamente campos entrecomillados:
+
+async transformData(path) {
+  const jsonData = [];
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(path, { encoding: 'utf8' })
+      .pipe(csv({
+        mapHeaders: ({ header }) => {
+          // Limpiar el header también (quitar espacios extras)
+          const cleanHeader = header.trim();
+          return mapHeader[cleanHeader] || cleanHeader;
+        },
+        mapValues: ({ value }) => (value === '' ? null : value),
+        separator: ';',
+        bom: true,
+        quote: '"',  // Especificar que usa comillas dobles
+        escape: '"',  // Las comillas se escapan duplicándolas
+        // Esto permite que csv-parser maneje correctamente campos entrecomillados
+      }))
+      .on('data', (data) => {
+        // Sanitizar cada fila de datos
+        const sanitizedData = this.sanitizeImportData(data);
+        jsonData.push(sanitizedData);
+      })
+      .on('end', () => {
+        resolve(jsonData);
+      })
+      .on('error', (e) => {
+        reject(e);
+      });
+  });
+}
 
   async insertCSV(file) {
     try {
