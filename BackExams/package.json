@@ -14,6 +14,9 @@
     "lint:fix": "eslint --fix .",
     "clean:linebreaks": "node --es-module-specifier-resolution=node scripts/clean-line-breaks.js",
     "debug:search": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/debug-search.js",
+    "enrich:feedback": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-feedback.js",
+    "enrich:all": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-feedback.js openai 200",
+    "enrich:test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-feedback.js openai 5",
     "alter": "node utils/alterQuestions"
   },
   "keywords": [],

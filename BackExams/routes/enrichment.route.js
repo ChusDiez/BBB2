@@ -186,4 +186,130 @@ router.post('/preview', async (req, res, next) => {
   }
 });
 
+// Enriquecer TODAS las preguntas con feedback
+router.post('/batch/all', async (req, res, next) => {
+  try {
+    const { provider = 'openai', limit = 200 } = req.body;
+    
+    // Verificar que el proveedor esté disponible
+    const providers = aiService.getAvailableProviders();
+    if (!providers[provider]) {
+      return res.status(400).json({
+        error: `El proveedor ${provider} no está configurado`
+      });
+    }
+    
+    console.log(`🚀 Iniciando enriquecimiento masivo con ${provider}...`);
+    
+    // Obtener TODAS las preguntas que tienen feedback
+    const allQuestions = await questionService.getAllQuestions();
+    const questionsWithFeedback = allQuestions.filter(q => 
+      q.feedback && 
+      q.feedback.trim().length > 0 &&
+      !q.feedback.includes('<strong') && // No está ya enriquecida
+      !q.feedback.includes('class=')     // No tiene clases CSS
+    );
+    
+    // Limitar si es necesario
+    const questionsToProcess = questionsWithFeedback.slice(0, limit);
+    
+    console.log(`📊 Procesando ${questionsToProcess.length} preguntas...`);
+    
+    if (questionsToProcess.length === 0) {
+      return res.json({ 
+        success: true,
+        message: 'No hay preguntas con feedback para enriquecer',
+        totalProcessed: 0
+      });
+    }
+    
+    // Procesar en lotes más pequeños para evitar timeouts
+    const batchSize = 5;
+    const allResults = [];
+    let processedCount = 0;
+    
+    for (let i = 0; i < questionsToProcess.length; i += batchSize) {
+      const batch = questionsToProcess.slice(i, i + batchSize);
+      console.log(`📦 Procesando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(questionsToProcess.length/batchSize)}`);
+      
+      // Enriquecer este lote
+      const enrichmentResults = await aiService.enrichMultipleFeedbacks(
+        batch.map(q => ({
+          id: q.id,
+          question: q.question,
+          correctAnswer: q.correctAnswer,
+          feedback: q.feedback
+        })),
+        provider
+      );
+      
+      // Actualizar las preguntas exitosas inmediatamente
+      for (const result of enrichmentResults) {
+        if (result.status === 'success') {
+          const question = batch.find(q => q.id === result.id);
+          await questionService.updateQuestion({
+            ...question.dataValues || question,
+            feedback: result.enrichedFeedback
+          });
+          processedCount++;
+          console.log(`✅ Actualizada pregunta ID: ${result.id}`);
+        }
+      }
+      
+      allResults.push(...enrichmentResults);
+      
+      // Pequeña pausa entre lotes para no saturar
+      if (i + batchSize < questionsToProcess.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    console.log(`✅ Proceso completado: ${processedCount} preguntas enriquecidas`);
+    
+    res.json({
+      success: true,
+      totalProcessed: questionsToProcess.length,
+      successfullyEnriched: processedCount,
+      results: allResults
+    });
+    
+  } catch (error) {
+    console.error('Error en enriquecimiento masivo:', error);
+    res.status(500).json({ 
+      error: 'Error al enriquecer los feedbacks',
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint para verificar el estado
+router.get('/status', async (req, res, next) => {
+  try {
+    const allQuestions = await questionService.getAllQuestions();
+    
+    const withFeedback = allQuestions.filter(q => q.feedback && q.feedback.trim().length > 0);
+    const enriched = withFeedback.filter(q => 
+      q.feedback.includes('<strong') || 
+      q.feedback.includes('class=')
+    );
+    const pending = withFeedback.length - enriched.length;
+    
+    res.json({
+      total: allQuestions.length,
+      withFeedback: withFeedback.length,
+      enriched: enriched.length,
+      pending: pending,
+      percentComplete: withFeedback.length > 0 
+        ? Math.round((enriched.length / withFeedback.length) * 100) 
+        : 0
+    });
+    
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Error al obtener el estado',
+      details: error.message 
+    });
+  }
+});
+
 export default router;

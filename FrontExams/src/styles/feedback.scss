@@ -133,3 +133,61 @@
     background-color: rgba(0, 123, 255, 0.1) !important;
   }
 }
+// Agregar estos estilos mejorados a tu feedback.scss
+
+/* Referencias a leyes y artículos - MEJORADO */
+.law-reference {
+  color: #1565c0 !important; // Azul más profesional
+  font-weight: 600;
+  background-color: #e8f4fd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-block;
+  border: 1px solid #bbdefb;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: #dbeafe;
+    border-color: #90caf9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+}
+
+// Para números específicos dentro del texto
+.article-number {
+  color: #0d47a1 !important;
+  background-color: #e3f2fd;
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 700;
+  margin: 0 2px;
+}
+
+// Override para strong y code dentro del feedback
+.feedback-preview, .feedback-container {
+  strong {
+    &.law-reference {
+      color: #1565c0 !important; // Forzar azul en lugar de rojo
+    }
+    
+    // Para otros strong que no sean leyes
+    &:not(.law-reference) {
+      color: #0066cc;
+    }
+  }
+  
+  // Si el IA usa code para artículos
+  code {
+    &.law-article {
+      background-color: #e8f4fd;
+      color: #1565c0 !important;
+      padding: 2px 6px;
+      font-family: inherit; // No usar monospace para leyes
+      font-weight: 600;
+      font-size: 1em;
+    }
+  }
+}

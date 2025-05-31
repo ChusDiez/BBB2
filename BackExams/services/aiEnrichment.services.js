@@ -1,3 +1,4 @@
+// @ts-nocheck
 // BackExams/services/aiEnrichment.services.js
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -80,10 +81,12 @@ INSTRUCCIONES:
    - <br> para saltos de línea donde sea necesario
    - <ul> y <li> si hay listas
    - <blockquote> para citas legales o referencias
-   - <code> para artículos de ley o números
-   - <span style="color: ..."> para colorear partes importantes (usa colores apropiados)
+   - <strong class="law-reference"> para artículos de ley y referencias legales
+   - <mark> para resaltar números de artículos importantes
+   - <span class="legal-term"> para términos legales específicos
+   - <span style="color: #0066cc; font-weight: 600;"> para colorear referencias importantes
 4. Mantén la estructura y párrafos originales
-5. Si hay referencias a leyes o artículos, márcalos con <code>
+5. Si hay referencias a leyes o artículos, usa <strong class="law-reference">Artículo X</strong>
 6. Si hay explicaciones de por qué las otras opciones son incorrectas, resáltalas apropiadamente
 
 IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin ningún formato adicional. NO uses bloques de código markdown (\`\`\`), NO añadas "html" al principio, NO uses comillas. Solo el HTML puro.`;
@@ -110,7 +113,7 @@ IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin ningún formato adicional. NO uses 
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: 'Eres un asistente que enriquece texto con HTML. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown (sin ```), sin comillas, sin explicaciones. Solo el HTML puro.'
+            content: 'Eres un asistente que enriquece texto con HTML. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown (sin \`\`\`), sin comillas, sin explicaciones. Solo el HTML puro. Para artículos de ley usa <strong class="law-reference"> en lugar de <code>.'
           }, {
             role: 'user',
             content: prompt
