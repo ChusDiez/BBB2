@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-"main": "index.js",
-"scripts": {
+  "main": "index.js",
+  "scripts": {
     "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node index.js",
     "start:dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 nodemon --es-module-specifier-resolution=node index.js",
     "start:prod": "node --es-module-specifier-resolution=node index.js",
@@ -15,8 +15,8 @@
     "clean:linebreaks": "node --es-module-specifier-resolution=node scripts/clean-line-breaks.js",
     "debug:search": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/debug-search.js",
     "alter": "node utils/alterQuestions"
-},
-"keywords": [],
+  },
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -32,7 +32,9 @@
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",
     "randomstring": "^1.2.2",
-    "sequelize": "^6.32.1"
+    "sequelize": "^6.32.1",
+    "openai": "^4.28.0",
+    "@anthropic-ai/sdk": "^0.16.1"
   },
   "devDependencies": {
     "eslint": "^8.19.0",

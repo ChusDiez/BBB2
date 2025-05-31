@@ -1,8 +1,12 @@
 // FrontExams/src/routes/Admin.tsx
 /* eslint-disable react/no-array-index-key */
+import { useState, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import { useModalContext } from '../context/ModalContext';
 import useQuestions from '../hooks/useQuestions';
 import useCategories from '../hooks/useCategories';
+import EnrichmentAPI from '../apis/EnrichmentAPI';
+import { Question } from '../store/slice';
 
 export default function Admin() {
   const {
@@ -13,6 +17,84 @@ export default function Admin() {
   } = useQuestions();
   const { categories } = useCategories();
   const { openModal } = useModalContext();
+  
+  // Estados para selección múltiple y enriquecimiento
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<number>>(new Set());
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichmentProvider, setEnrichmentProvider] = useState<'openai' | 'anthropic'>('openai');
+  const [availableProviders, setAvailableProviders] = useState<any>({});
+  const [showPreviewFor, setShowPreviewFor] = useState<number | null>(null);
+
+  // Cargar proveedores disponibles
+  useState(() => {
+    EnrichmentAPI.getProviders().then(({ data }) => {
+      setAvailableProviders(data);
+    }).catch(console.error);
+  });
+
+  // Toggle selección de pregunta
+  const toggleQuestionSelection = useCallback((questionId: number) => {
+    setSelectedQuestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId);
+      } else {
+        newSet.add(questionId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Seleccionar/deseleccionar todas
+  const toggleSelectAll = useCallback(() => {
+    if (selectedQuestions.size === questions.length) {
+      setSelectedQuestions(new Set());
+    } else {
+      setSelectedQuestions(new Set(questions.map(q => q.id)));
+    }
+  }, [questions, selectedQuestions.size]);
+
+  // Enriquecer preguntas seleccionadas
+  const enrichSelectedQuestions = async () => {
+    if (selectedQuestions.size === 0) {
+      alert('Por favor selecciona al menos una pregunta');
+      return;
+    }
+
+    const questionsWithFeedback = questions
+      .filter(q => selectedQuestions.has(q.id) && q.feedback)
+      .map(q => q.id);
+
+    if (questionsWithFeedback.length === 0) {
+      alert('Ninguna de las preguntas seleccionadas tiene feedback para enriquecer');
+      return;
+    }
+
+    if (!window.confirm(
+      `¿Estás seguro de que quieres enriquecer ${questionsWithFeedback.length} pregunta(s) con ${enrichmentProvider.toUpperCase()}?\n\nEsto sobrescribirá el feedback actual con la versión enriquecida con HTML.`
+    )) {
+      return;
+    }
+
+    setIsEnriching(true);
+    try {
+      const { data } = await EnrichmentAPI.enrichBatch({
+        questionIds: Array.from(questionsWithFeedback),
+        provider: enrichmentProvider
+      });
+
+      if (data.success) {
+        alert(`✅ Se enriquecieron exitosamente ${data.successfullyEnriched} de ${data.totalProcessed} preguntas`);
+        setSelectedQuestions(new Set());
+        // Las preguntas se actualizarán automáticamente desde el store
+      }
+    } catch (error) {
+      console.error('Error al enriquecer preguntas:', error);
+      alert('❌ Error al enriquecer las preguntas. Por favor, intenta de nuevo.');
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -76,7 +158,42 @@ export default function Admin() {
               </div>
             )}
           </div>
-          <div>
+          <div className="d-flex gap-2">
+            {/* Controles de enriquecimiento con IA */}
+            {selectedQuestions.size > 0 && availableProviders.hasAny && (
+              <div className="d-flex align-items-center gap-2 me-3">
+                <span className="badge bg-info">
+                  {selectedQuestions.size} seleccionada{selectedQuestions.size !== 1 ? 's' : ''}
+                </span>
+                <select 
+                  className="form-select form-select-sm"
+                  value={enrichmentProvider}
+                  onChange={(e) => setEnrichmentProvider(e.target.value as 'openai' | 'anthropic')}
+                  disabled={isEnriching}
+                >
+                  {availableProviders.openai && <option value="openai">OpenAI</option>}
+                  {availableProviders.anthropic && <option value="anthropic">Anthropic</option>}
+                </select>
+                <button
+                  className="btn btn-sm btn-warning"
+                  onClick={enrichSelectedQuestions}
+                  disabled={isEnriching}
+                  title="Enriquecer feedback con HTML usando IA"
+                >
+                  {isEnriching ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-stars me-1"></i>
+                      Enriquecer con IA
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
             <button
               className="btn btn-action"
               type="button"
@@ -108,7 +225,16 @@ export default function Admin() {
           <table className="table table-hover align-middle mb-0 px-3">
             <thead>
               <tr>
-                <th className="text-truncate" style={{ width: '60%' }}>
+                <th style={{ width: '50px' }}>
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={selectedQuestions.size === questions.length && questions.length > 0}
+                    onChange={toggleSelectAll}
+                    title="Seleccionar todas"
+                  />
+                </th>
+                <th className="text-truncate" style={{ width: '50%' }}>
                   Pregunta
                 </th>
                 <th className="text-nowrap text-center">
@@ -116,6 +242,9 @@ export default function Admin() {
                 </th>
                 <th className="text-nowrap text-center">
                   Tema
+                </th>
+                <th className="text-center">
+                  Feedback
                 </th>
                 <th
                   className="col-1 text-center"
@@ -127,54 +256,103 @@ export default function Admin() {
             </thead>
             <tbody>
               {questions.map((question) => (
-                <tr
-                  key={question.id}
-                  onClick={() => openModal('addQuestion', { payload: { question } })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td className="small text-truncate" style={{ maxWidth: '400px' }}>
-                    {question.question}
-                    {question.feedback && (
-                      <i className="bi bi-chat-left-text-fill text-primary ms-2" title="Tiene feedback"></i>
-                    )}
-                  </td>
-                  <td className="text-nowrap text-center">
-                    <span className="badge bg-secondary">
-                      Bloque {question.block}
-                    </span>
-                  </td>
-                  <td className="text-nowrap text-center">
-                    {question.topic}
-                  </td>
-                  <td>
-                    <div className="d-flex justify-content-center gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openModal('addQuestion', { payload: { question } });
-                        }}
-                        title="Editar pregunta"
-                      >
-                        <i className="bi bi-pencil" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (window.confirm('¿Estás seguro de que quieres eliminar esta pregunta?')) {
-                            await deleteQuestion(question.id);
-                          }
-                        }}
-                        title="Eliminar pregunta"
-                      >
-                        <i className="bi bi-trash" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <>
+                  <tr
+                    key={question.id}
+                    className={selectedQuestions.has(question.id) ? 'table-active' : ''}
+                  >
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={selectedQuestions.has(question.id)}
+                        onChange={() => toggleQuestionSelection(question.id)}
+                      />
+                    </td>
+                    <td 
+                      className="small text-truncate pointer" 
+                      style={{ maxWidth: '400px' }}
+                      onClick={() => openModal('addQuestion', { payload: { question } })}
+                    >
+                      {question.question}
+                    </td>
+                    <td className="text-nowrap text-center">
+                      <span className="badge bg-secondary">
+                        Bloque {question.block}
+                      </span>
+                    </td>
+                    <td className="text-nowrap text-center">
+                      {question.topic}
+                    </td>
+                    <td className="text-center">
+                      {question.feedback ? (
+                        <button
+                          className="btn btn-sm btn-link p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPreviewFor(showPreviewFor === question.id ? null : question.id);
+                          }}
+                          title="Ver vista previa del feedback"
+                        >
+                          <i className="bi bi-chat-left-text-fill text-primary fs-5"></i>
+                        </button>
+                      ) : (
+                        <i className="bi bi-dash text-muted"></i>
+                      )}
+                    </td>
+                    <td>
+                      <div className="d-flex justify-content-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openModal('addQuestion', { payload: { question } });
+                          }}
+                          title="Editar pregunta"
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (window.confirm('¿Estás seguro de que quieres eliminar esta pregunta?')) {
+                              await deleteQuestion(question.id);
+                            }
+                          }}
+                          title="Eliminar pregunta"
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {/* Fila de vista previa del feedback */}
+                  {showPreviewFor === question.id && question.feedback && (
+                    <tr key={`preview-${question.id}`}>
+                      <td colSpan={6} className="p-0">
+                        <div className="bg-light p-3 m-2 rounded">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <h6 className="mb-0">Vista previa del feedback:</h6>
+                            <button
+                              className="btn btn-sm btn-close"
+                              onClick={() => setShowPreviewFor(null)}
+                              aria-label="Cerrar vista previa"
+                            />
+                          </div>
+                          <div 
+                            className="feedback-preview border bg-white p-3 rounded"
+                            dangerouslySetInnerHTML={{ 
+                              __html: DOMPurify.sanitize(question.feedback) 
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
