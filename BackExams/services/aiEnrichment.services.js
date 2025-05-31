@@ -1,4 +1,3 @@
-// @ts-nocheck
 // BackExams/services/aiEnrichment.services.js
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -64,32 +63,28 @@ class AIEnrichmentService {
       return originalFeedback;
     }
 
-    const prompt = `Eres un asistente experto en educación. Tu tarea es enriquecer el siguiente feedback de una pregunta de examen con HTML para hacerlo más claro y visualmente atractivo, PERO sin cambiar el contenido del texto original.
+    const prompt = `Eres un asistente experto en educación. Tu tarea es tomar el siguiente texto de feedback y ÚNICAMENTE añadirle formato HTML para mejorar su presentación visual.
 
-PREGUNTA: ${question}
-RESPUESTA CORRECTA: ${correctAnswer}
-FEEDBACK ORIGINAL: ${originalFeedback}
+TEXTO A FORMATEAR:
+${originalFeedback}
 
-INSTRUCCIONES:
-1. NO cambies, añadas o elimines ninguna palabra del texto original
-2. Solo añade etiquetas HTML para mejorar la presentación
-3. Usa las siguientes etiquetas cuando sea apropiado:
-   - <strong> o <b> para conceptos clave o respuestas
+REGLAS ESTRICTAS:
+1. NUNCA añadas texto nuevo, títulos, prefijos como "PREGUNTA:", "RESPUESTA CORRECTA:", "FEEDBACK:", etc.
+2. NUNCA incluyas la pregunta ni la respuesta correcta en tu respuesta
+3. Solo devuelve el texto original con etiquetas HTML añadidas
+4. Usa estas etiquetas HTML cuando sea apropiado:
+   - <strong> o <b> para conceptos clave
    - <em> o <i> para énfasis
    - <u> para subrayar términos importantes
    - <mark> para resaltar información crítica
    - <br> para saltos de línea donde sea necesario
    - <ul> y <li> si hay listas
-   - <blockquote> para citas legales o referencias
-   - <strong class="law-reference"> para artículos de ley y referencias legales
-   - <mark> para resaltar números de artículos importantes
-   - <span class="legal-term"> para términos legales específicos
-   - <span style="color: #0066cc; font-weight: 600;"> para colorear referencias importantes
-4. Mantén la estructura y párrafos originales
-5. Si hay referencias a leyes o artículos, usa <strong class="law-reference">Artículo X</strong>
-6. Si hay explicaciones de por qué las otras opciones son incorrectas, resáltalas apropiadamente
+   - <blockquote> para citas legales
+   - <code> para artículos de ley o números
+   - <span style="color: ..."> para colorear (usa colores apropiados)
+5. Respeta EXACTAMENTE el texto original, solo añade formato
 
-IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin ningún formato adicional. NO uses bloques de código markdown (\`\`\`), NO añadas "html" al principio, NO uses comillas. Solo el HTML puro.`;
+CRÍTICO: Tu respuesta debe ser SOLO el texto del feedback con formato HTML. Nada más. No añadas ningún texto que no esté en el feedback original.`;
 
     try {
       if (provider === 'anthropic' && this.anthropic) {
@@ -113,7 +108,7 @@ IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin ningún formato adicional. NO uses 
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: 'Eres un asistente que enriquece texto con HTML. IMPORTANTE: Devuelve SOLO el HTML, sin bloques de código markdown (sin \`\`\`), sin comillas, sin explicaciones. Solo el HTML puro. Para artículos de ley usa <strong class="law-reference"> en lugar de <code>.'
+            content: 'Eres un asistente que formatea texto con HTML. NUNCA añadas texto nuevo como "PREGUNTA:", "RESPUESTA:", "FEEDBACK:", etc. Solo devuelve el texto original con formato HTML añadido. No uses bloques de código markdown, no uses comillas, solo HTML puro.'
           }, {
             role: 'user',
             content: prompt
@@ -144,53 +139,84 @@ IMPORTANTE: Devuelve ÚNICAMENTE el HTML sin ningún formato adicional. NO uses 
    * @returns {Promise<Array>} - Array de feedbacks enriquecidos
    */
   async enrichMultipleFeedbacks(questions, provider = 'openai') {
-    const enrichmentPromises = questions.map(async (q) => {
-      if (!q.feedback || q.feedback.trim().length === 0) {
-        return {
-          id: q.id,
-          enrichedFeedback: q.feedback,
-          status: 'skipped',
-          reason: 'No hay feedback para enriquecer'
-        };
-      }
-
-      try {
-        const enrichedFeedback = await this.enrichFeedback(
-          q.feedback,
-          q.question,
-          q.correctAnswer,
-          provider
-        );
-        
-        return {
-          id: q.id,
-          enrichedFeedback,
-          status: 'success'
-        };
-      } catch (error) {
-        return {
-          id: q.id,
-          enrichedFeedback: q.feedback,
-          status: 'error',
-          error: error.message
-        };
-      }
-    });
-
-    // Procesar en lotes para no sobrecargar la API
-    const batchSize = 5;
-    const results = [];
+    console.log(`📋 Iniciando enriquecimiento de ${questions.length} preguntas con ${provider}`);
     
-    for (let i = 0; i < enrichmentPromises.length; i += batchSize) {
-      const batch = enrichmentPromises.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch);
+    const results = [];
+    const batchSize = 3; // Reducimos el tamaño del lote para más estabilidad
+    
+    // Procesar las preguntas en lotes secuenciales
+    for (let i = 0; i < questions.length; i += batchSize) {
+      const batch = questions.slice(i, i + batchSize);
+      console.log(`   Procesando lote ${Math.floor(i/batchSize) + 1} de ${Math.ceil(questions.length/batchSize)} (preguntas ${i + 1}-${Math.min(i + batchSize, questions.length)})`);
+      
+      // Procesar cada pregunta del lote
+      const batchPromises = batch.map(async (q) => {
+        if (!q.feedback || q.feedback.trim().length === 0) {
+          return {
+            id: q.id,
+            enrichedFeedback: q.feedback,
+            status: 'skipped',
+            reason: 'No hay feedback para enriquecer'
+          };
+        }
+
+        // Verificar si el feedback ya está enriquecido (contiene HTML)
+        if (q.feedback.includes('<') && q.feedback.includes('>')) {
+          return {
+            id: q.id,
+            enrichedFeedback: q.feedback,
+            status: 'skipped',
+            reason: 'El feedback ya parece estar enriquecido con HTML'
+          };
+        }
+
+        try {
+          const enrichedFeedback = await this.enrichFeedback(
+            q.feedback,
+            q.question,
+            q.correctAnswer,
+            provider
+          );
+          
+          console.log(`      ✅ Pregunta ID ${q.id} enriquecida`);
+          
+          return {
+            id: q.id,
+            enrichedFeedback,
+            status: 'success'
+          };
+        } catch (error) {
+          console.error(`      ❌ Error en pregunta ID ${q.id}:`, error.message);
+          return {
+            id: q.id,
+            enrichedFeedback: q.feedback,
+            status: 'error',
+            error: error.message
+          };
+        }
+      });
+      
+      // Esperar a que termine el lote actual
+      const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults);
       
-      // Pequeña pausa entre lotes para respetar rate limits
-      if (i + batchSize < enrichmentPromises.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Pausa entre lotes para respetar rate limits (2 segundos para OpenAI, 1 para Anthropic)
+      if (i + batchSize < questions.length) {
+        const delay = provider === 'openai' ? 2000 : 1000;
+        console.log(`   ⏸️  Pausando ${delay/1000}s antes del siguiente lote...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
+    
+    // Resumen final
+    const successCount = results.filter(r => r.status === 'success').length;
+    const skippedCount = results.filter(r => r.status === 'skipped').length;
+    const errorCount = results.filter(r => r.status === 'error').length;
+    
+    console.log('\n📊 Resumen del enriquecimiento:');
+    console.log(`   ✅ Exitosos: ${successCount}`);
+    console.log(`   ⏭️  Omitidos: ${skippedCount}`);
+    console.log(`   ❌ Errores: ${errorCount}`);
 
     return results;
   }
