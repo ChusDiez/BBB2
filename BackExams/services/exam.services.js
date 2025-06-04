@@ -1,9 +1,11 @@
-// BackExams/services/exam.services.js - VERSIÓN COMPLETA MEJORADA
+// BackExams/services/exam.services.js - VERSIÓN MEJORADA CON MEJOR MANEJO DE HTML
 import fsPromise from 'fs/promises';
 import fs from 'fs';
 import randomstring from 'randomstring';
 import docx from 'docx';
+import he from 'he'; // Para decodificar entidades HTML
 import createDocument from '../config/document.js';
+
 const { Packer } = docx;
 const EXAMS_PATH = './exams';
 
@@ -23,78 +25,268 @@ class ExamService {
     }
   }
 
-  // ✅ MÉTODO MEJORADO PARA LIMPIAR Y NORMALIZAR TEXTO
+  // ✅ MÉTODO MEJORADO PARA LIMPIAR Y NORMALIZAR TEXTO PLANO
   sanitizeText(text) {
     if (!text) return '';
     
     // Convertir a string si no lo es
     text = String(text);
     
-    // Eliminar caracteres de control y zero-width
+    // 1. Decodificar entidades HTML primero
+    text = he.decode(text);
+    
+    // 2. Eliminar caracteres de control y zero-width
     text = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
     text = text.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Zero-width chars
+    text = text.replace(/\u2028/g, ' '); // Line separator
+    text = text.replace(/\u2029/g, ' '); // Paragraph separator
     
-    // Normalizar caracteres especiales
-    text = text.replace(/[""'']/g, '"'); // Smart quotes → regular quotes
-    text = text.replace(/[–—]/g, '-'); // Em/en dashes → hyphens
-    text = text.replace(/…/g, '...'); // Ellipsis → three dots
+    // 3. Normalizar caracteres tipográficos
+    text = text
+      // Comillas dobles tipográficas
+      .replace(/[""«»„"‟″‶]/g, '"')
+      // Comillas simples tipográficas
+      .replace(/[''‹›‚‛′‵]/g, "'")
+      // Em/en dashes → hyphen (para texto plano)
+      .replace(/[–—―]/g, '-')
+      // Ellipsis
+      .replace(/…/g, '...')
+      // Espacios no-break y otros espacios especiales
+      .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+      // Bullets y otros símbolos
+      .replace(/[•·◦‣⁃]/g, '-')
+      // Fracciones comunes
+      .replace(/½/g, '1/2')
+      .replace(/¼/g, '1/4')
+      .replace(/¾/g, '3/4')
+      .replace(/⅓/g, '1/3')
+      .replace(/⅔/g, '2/3');
     
-    // Reemplazar diferentes tipos de saltos de línea por un espacio
+    // 4. Eliminar cualquier tag HTML residual (para campos de texto plano)
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // 5. Normalizar saltos de línea a espacios
     text = text.replace(/\r\n/g, ' ');
-    text = text.replace(/\n/g, ' ');
-    text = text.replace(/\r/g, ' ');
+    text = text.replace(/[\r\n]/g, ' ');
     
-    // Reemplazar múltiples espacios por uno solo
+    // 6. Normalizar espacios múltiples
     text = text.replace(/\s+/g, ' ');
     
-    // Eliminar espacios al inicio y final
+    // 7. Trim
     text = text.trim();
-    
-    // Escapar punto y coma si existe (ya que es nuestro delimitador)
-    text = text.replace(/;/g, ',');
-    
-    // Eliminar comillas dobles y reemplazar por simples
-    text = text.replace(/"/g, "'");
     
     return text;
   }
 
-  // ✅ MÉTODO PARA LIMPIAR HTML PROBLEMÁTICO PARA WORD
+  // ✅ MÉTODO MEJORADO PARA LIMPIAR HTML PARA WORD
   cleanHtmlForWord(html) {
     if (!html) return null;
     
     let cleaned = html;
     
-    // Eliminar caracteres problemáticos para Word
-    cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Zero-width chars
-    cleaned = cleaned.replace(/[""'']/g, '"'); // Smart quotes → regular quotes
-    cleaned = cleaned.replace(/[–—]/g, '-'); // Em/en dashes → hyphens
-    cleaned = cleaned.replace(/…/g, '...'); // Ellipsis → three dots
+    // 1. Decodificar entidades HTML correctamente
+    // Pero NO decodificar < y > para preservar los tags
+    cleaned = he.decode(cleaned, {
+      isAttributeValue: false,
+      strict: false
+    });
     
-    // Eliminar caracteres de control
-    cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+    // 2. Validar y corregir estructura HTML
+    cleaned = this.fixMalformedHtml(cleaned);
     
-    // Simplificar HTML complejo que puede causar problemas
-    cleaned = cleaned.replace(/<script[^>]*>.*?<\/script>/gi, ''); // Remove scripts
-    cleaned = cleaned.replace(/<style[^>]*>.*?<\/style>/gi, ''); // Remove styles
-    cleaned = cleaned.replace(/<!--.*?-->/g, ''); // Remove comments
+    // 3. Eliminar caracteres problemáticos para Word
+    cleaned = cleaned
+      // Zero-width y caracteres de control
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/[\u2028\u2029]/g, ' ')
+      // Normalizar espacios especiales
+      .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ');
     
-    // Normalizar espacios en HTML
-    cleaned = cleaned.replace(/>\s+</g, '><'); // Remove spaces between tags
-    cleaned = cleaned.replace(/\s+/g, ' '); // Multiple spaces → single space
+    // 4. Normalizar caracteres tipográficos EN ATRIBUTOS
+    // Pero preservar en el contenido para mejor visualización
+    cleaned = cleaned.replace(/(\w+)="([^"]*)"/g, (match, attr, value) => {
+      const cleanValue = value
+        .replace(/[""«»„"]/g, '"')
+        .replace(/[''‹›‚‛]/g, "'")
+        .replace(/[–—]/g, '-');
+      return `${attr}="${cleanValue}"`;
+    });
     
-    // Asegurar que los colores sean visibles en Word
-    cleaned = cleaned.replace(/color:\s*#(fff|ffffff|fefefe)/gi, 'color: #000000');
-    cleaned = cleaned.replace(/background-color:\s*#(fff|ffffff|fefefe)/gi, 'background-color: #f5f5f5');
+    // 5. Limpiar HTML problemático
+    cleaned = cleaned
+      .replace(/<script[^>]*>.*?<\/script>/gis, '')
+      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+      .replace(/<!--.*?-->/gs, '')
+      .replace(/<meta[^>]*>/gi, '')
+      .replace(/<link[^>]*>/gi, '');
     
-    // Corregir colores muy claros que se ven mal en Word
-    cleaned = cleaned.replace(/color:\s*#f8f9ff/gi, 'color: #0066cc');
-    cleaned = cleaned.replace(/background-color:\s*#fff3cd/gi, 'background-color: #ffffcc');
+    // 6. Corregir colores problemáticos para Word
+    cleaned = this.fixColorsForWord(cleaned);
     
-    // Limpiar atributos problemáticos
-    cleaned = cleaned.replace(/\s*style\s*=\s*["'][^"']*color:\s*transparent[^"']*["']/gi, '');
+    // 7. Corregir estilos CSS
+    cleaned = this.fixCssStyles(cleaned);
     
-    return cleaned.trim();
+    // 8. Eliminar atributos peligrosos
+    cleaned = cleaned
+      .replace(/\son\w+="[^"]*"/gi, '') // Eliminar event handlers
+      .replace(/\sjavascript:[^"'\s]*/gi, ''); // Eliminar javascript: URLs
+    
+    // 9. Normalizar espacios finales
+    cleaned = cleaned
+      .replace(/>\s+</g, '><')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return cleaned;
+  }
+
+  // Nuevo método para corregir HTML mal formado
+  fixMalformedHtml(html) {
+    if (!html) return html;
+    
+    let fixed = html;
+    
+    // 1. Corregir tags no cerrados
+    const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
+    
+    // Encontrar todos los tags
+    const tagStack = [];
+    const tagRegex = /<(\/?)([\w]+)([^>]*)>/g;
+    let match;
+    
+    while ((match = tagRegex.exec(fixed)) !== null) {
+      const [, isClosing, tagName, attributes] = match;
+      const lowerTagName = tagName.toLowerCase();
+      
+      if (!isClosing && !selfClosingTags.includes(lowerTagName)) {
+        tagStack.push(lowerTagName);
+      } else if (isClosing) {
+        const lastIndex = tagStack.lastIndexOf(lowerTagName);
+        if (lastIndex >= 0) {
+          tagStack.splice(lastIndex, 1);
+        }
+      }
+    }
+    
+    // Cerrar tags no cerrados
+    tagStack.reverse().forEach(tag => {
+      fixed += `</${tag}>`;
+    });
+    
+    // 2. Corregir atributos con comillas no cerradas
+    fixed = fixed.replace(/<(\w+)([^>]*)>/g, (match, tagName, attributes) => {
+      if (!attributes) return match;
+      
+      let fixedAttrs = attributes;
+      
+      // Corregir style
+      fixedAttrs = fixedAttrs.replace(/style\s*=\s*"([^"]*?)(?=\s|>|$)/g, (m, styleContent) => {
+        if (!m.endsWith('"')) {
+          return `style="${styleContent}"`;
+        }
+        return m;
+      });
+      
+      // Corregir otros atributos
+      fixedAttrs = fixedAttrs.replace(/(\w+)\s*=\s*["']([^"']*?)(?=\s|>|$)/g, (m, attr, value) => {
+        if (!m.endsWith('"') && !m.endsWith("'")) {
+          return `${attr}="${value}"`;
+        }
+        return m;
+      });
+      
+      return `<${tagName}${fixedAttrs}>`;
+    });
+    
+    // 3. Escapar < y > que no son parte de tags
+    fixed = fixed.replace(/(<)(?![a-zA-Z\/!])/g, '&lt;');
+    fixed = fixed.replace(/(?<![a-zA-Z"\/>])>/g, '&gt;');
+    
+    return fixed;
+  }
+
+  // Nuevo método para corregir colores para Word
+  fixColorsForWord(html) {
+    if (!html) return html;
+    
+    let fixed = html;
+    
+    // Mapa de colores problemáticos a colores visibles
+    const colorMap = {
+      // Blancos y transparentes
+      '#ffffff': '#000000',
+      '#fff': '#000000',
+      '#fefefe': '#333333',
+      'white': '#000000',
+      'transparent': '#000000',
+      
+      // Colores muy claros
+      '#f8f9ff': '#0066cc',
+      '#fff3cd': '#ffcc00',
+      '#e8f4fd': '#0099ff',
+      '#ffe4e1': '#ff6666',
+      '#f0fff0': '#009900',
+      '#fffafa': '#cc0000',
+      
+      // Grises muy claros
+      '#f5f5f5': '#666666',
+      '#eeeeee': '#777777',
+      '#e0e0e0': '#888888',
+      '#cccccc': '#666666'
+    };
+    
+    // Reemplazar colores en estilos
+    Object.entries(colorMap).forEach(([oldColor, newColor]) => {
+      const regex = new RegExp(`((?:color|background-color)\\s*:\\s*)${oldColor.replace('#', '#?')}(?=[;'"])`, 'gi');
+      fixed = fixed.replace(regex, `$1${newColor}`);
+    });
+    
+    return fixed;
+  }
+
+  // Nuevo método para corregir estilos CSS
+  fixCssStyles(html) {
+    if (!html) return html;
+    
+    let fixed = html;
+    
+    // Corregir sintaxis CSS en atributos style
+    fixed = fixed.replace(/style="([^"]*)"/g, (match, styles) => {
+      let fixedStyles = styles;
+      
+      // 1. Reemplazar comas por punto y coma
+      fixedStyles = fixedStyles.replace(/,\s*(?=[\w-]+:)/g, '; ');
+      
+      // 2. Eliminar punto y coma duplicados
+      fixedStyles = fixedStyles.replace(/;\s*;/g, ';');
+      
+      // 3. Eliminar espacios alrededor de :
+      fixedStyles = fixedStyles.replace(/\s*:\s*/g, ':');
+      
+      // 4. Asegurar espacio después de punto y coma
+      fixedStyles = fixedStyles.replace(/;(?=\w)/g, '; ');
+      
+      // 5. Eliminar punto y coma final
+      fixedStyles = fixedStyles.replace(/;\s*$/, '');
+      
+      // 6. Validar propiedades CSS
+      const validProperties = fixedStyles.split(';').map(prop => {
+        const trimmed = prop.trim();
+        if (!trimmed || !trimmed.includes(':')) return '';
+        
+        const [property, ...valueParts] = trimmed.split(':');
+        const value = valueParts.join(':').trim();
+        
+        if (!property || !value) return '';
+        
+        return `${property.trim()}:${value}`;
+      }).filter(s => s).join(';');
+      
+      return `style="${validProperties}"`;
+    });
+    
+    return fixed;
   }
 
   // ✅ MÉTODO PARA VALIDAR ESTRUCTURA DE PREGUNTAS
@@ -161,15 +353,24 @@ class ExamService {
       // ✅ LIMPIAR DATOS PROBLEMÁTICOS
       const cleanedQuestions = questions.map((q, index) => {
         try {
-          return {
+          const cleaned = {
             ...q,
+            // Campos de texto plano - usar sanitización completa
             question: this.sanitizeText(q.question),
             optionA: this.sanitizeText(q.optionA),
             optionB: this.sanitizeText(q.optionB),
             optionC: this.sanitizeText(q.optionC),
             correctAnswer: q.correctAnswer,
+            // Feedback HTML - usar limpieza especial para preservar formato
             feedback: q.feedback ? this.cleanHtmlForWord(q.feedback) : null
           };
+          
+          // Validación adicional del feedback
+          if (cleaned.feedback && cleaned.feedback.includes('<') && !cleaned.feedback.includes('>')) {
+            console.warn(`⚠️ Pregunta ${index + 1}: Feedback con HTML potencialmente corrupto`);
+          }
+          
+          return cleaned;
         } catch (error) {
           console.error(`❌ Error limpiando pregunta ${index + 1}:`, error);
           throw new Error(`Error procesando pregunta ${index + 1}: ${error.message}`);
@@ -177,6 +378,12 @@ class ExamService {
       });
       
       console.log(`✅ ${cleanedQuestions.length} preguntas limpiadas y validadas`);
+      
+      // Log de muestra para debugging
+      if (cleanedQuestions.length > 0 && cleanedQuestions[0].feedback) {
+        console.log('📋 Muestra de feedback procesado (primeros 200 chars):');
+        console.log(cleanedQuestions[0].feedback.substring(0, 200) + '...');
+      }
       
       // ✅ CREAR DOCUMENTO CON MEJOR MANEJO DE ERRORES
       console.log('🔄 Generando estructura del documento...');
@@ -213,7 +420,7 @@ class ExamService {
       }
       
       // Validar que el buffer tenga el tamaño mínimo de un documento Word válido
-      if (buffer.length < 1000) { // Un documento Word mínimo suele ser > 1KB
+      if (buffer.length < 1000) {
         throw new Error(`Buffer del documento es muy pequeño (${buffer.length} bytes)`);
       }
       
@@ -252,21 +459,21 @@ class ExamService {
         throw new Error('Archivo generado está vacío');
       }
       
-      // Verificar que el tamaño del archivo sea razonable
-      if (stats.size !== buffer.length) {
-        console.warn(`⚠️ Tamaño del archivo (${stats.size}) difiere del buffer (${buffer.length})`);
-      }
-      
       console.log(`✅ Documento Word creado exitosamente: ${path} (${stats.size} bytes)`);
       
       // ✅ VERIFICACIÓN FINAL DE INTEGRIDAD
       try {
-        // Intentar leer los primeros bytes para verificar que es un archivo válido
-        const fileHeader = await fsPromise.readFile(path, { start: 0, end: 4 });
-        const isProbablyZip = fileHeader[0] === 0x50 && fileHeader[1] === 0x4B; // "PK" - ZIP header
+        const fileHeader = Buffer.alloc(4);
+        const fd = await fsPromise.open(path, 'r');
+        await fd.read(fileHeader, 0, 4, 0);
+        await fd.close();
+        
+        const isProbablyZip = fileHeader[0] === 0x50 && fileHeader[1] === 0x4B;
         
         if (!isProbablyZip) {
           console.warn('⚠️ El archivo generado podría no ser un documento Word válido');
+        } else {
+          console.log('✅ Verificación de integridad: Archivo Word válido (PK header)');
         }
       } catch (headerError) {
         console.warn('⚠️ No se pudo verificar la integridad del archivo:', headerError.message);
@@ -292,99 +499,102 @@ class ExamService {
     }
   }
 
-// En BackExams/services/exam.services.js
-// Versión más robusta que maneja todos los campos correctamente:
-
-async createCsvExam(questions) {
-  const path = this.createPath('csv');
-  
-  try {
-    console.log(`📊 Creando archivo CSV con ${questions.length} preguntas...`);
+  // ✅ MÉTODO createCsvExam MEJORADO
+  async createCsvExam(questions) {
+    const path = this.createPath('csv');
     
-    // Validar preguntas
-    this.validateQuestions(questions);
-    
-    // Función para procesar campos CSV según el estándar
-    const processCsvField = (field, forceQuote = false) => {
-      if (!field) return '';
+    try {
+      console.log(`📊 Creando archivo CSV con ${questions.length} preguntas...`);
       
-      // Convertir a string
-      let str = String(field);
+      // Validar preguntas
+      this.validateQuestions(questions);
       
-      // Eliminar solo caracteres de control invisibles
-      str = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-      str = str.replace(/[\u200B-\u200D\uFEFF]/g, '');
+      // Función mejorada para procesar campos CSV
+      const processCsvField = (field, forceQuote = false) => {
+        if (!field) return '';
+        
+        // Convertir a string
+        let str = String(field);
+        
+        // Decodificar entidades HTML para CSV
+        str = he.decode(str);
+        
+        // Eliminar caracteres de control
+        str = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+        str = str.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        
+        // Determinar si necesita comillas
+        const needsQuotes = forceQuote || 
+                           str.includes(';') ||     // Contiene el delimitador
+                           str.includes('"') ||     // Contiene comillas
+                           str.includes('\n') ||    // Contiene saltos de línea
+                           str.includes('\r') ||    // Contiene retornos de carro
+                           str.includes('<');       // Contiene HTML
+        
+        if (needsQuotes) {
+          // Duplicar comillas internas según estándar CSV
+          str = str.replace(/"/g, '""');
+          // Encerrar entre comillas
+          return `"${str}"`;
+        }
+        
+        return str;
+      };
       
-      // Determinar si necesita comillas
-      const needsQuotes = forceQuote || 
-                         str.includes(';') ||     // Contiene el delimitador
-                         str.includes('"') ||     // Contiene comillas
-                         str.includes('\n') ||    // Contiene saltos de línea
-                         str.includes('<');       // Contiene HTML
-      
-      if (needsQuotes) {
-        // Duplicar comillas internas según estándar CSV
-        str = str.replace(/"/g, '""');
-        // Encerrar entre comillas
-        return `"${str}"`;
-      }
-      
-      return str;
-    };
-    
-    // Crear el contenido del CSV
-    const results = questions.map(({
-      question,
-      optionA,
-      optionB,
-      optionC,
-      correctAnswer,
-      feedback,
-    }) => {
-      // Procesar cada campo apropiadamente
-      const cleanQuestion = processCsvField(question);
-      const cleanOptionA = processCsvField(optionA);
-      const cleanOptionB = processCsvField(optionB);
-      const cleanOptionC = processCsvField(optionC);
-      
-      // Feedback SIEMPRE entrecomillado porque contiene HTML
-      const cleanFeedback = processCsvField(feedback, true);
-      
-      return `*;${cleanQuestion};
+      // Crear el contenido del CSV
+      const results = questions.map(({
+        question,
+        optionA,
+        optionB,
+        optionC,
+        correctAnswer,
+        feedback,
+      }) => {
+        // Procesar cada campo apropiadamente
+        const cleanQuestion = processCsvField(question);
+        const cleanOptionA = processCsvField(optionA);
+        const cleanOptionB = processCsvField(optionB);
+        const cleanOptionC = processCsvField(optionC);
+        
+        // Feedback SIEMPRE entrecomillado porque puede contener HTML
+        const cleanFeedback = processCsvField(feedback, true);
+        
+        return `*;${cleanQuestion};
 ;${cleanOptionA};${correctAnswer === 'A' ? 'x' : ''}
 ;${cleanOptionB};${correctAnswer === 'B' ? 'x' : ''}
 ;${cleanOptionC};${correctAnswer === 'C' ? 'x' : ''}
 @;${cleanFeedback}; \n`;
-    }).join('');
-    
-    // Añadir BOM para UTF-8 y escribir el archivo
-    const BOM = '\ufeff';
-    await fsPromise.writeFile(path, BOM + results, 'utf8');
-    
-    // Verificar archivo generado
-    const stats = await fsPromise.stat(path);
-    console.log(`✅ CSV creado exitosamente: ${path} (${stats.size} bytes)`);
-    console.log(`   Formato: CSV estándar con campos entrecomillados`);
-    console.log(`   Delimitador: punto y coma (;)`);
-    console.log(`   Codificación: UTF-8 con BOM`);
-    
-    return path;
-    
-  } catch (error) {
-    console.error('❌ Error creando CSV:', error);
-    
-    // Limpiar archivo parcial
-    try {
-      if (fs.existsSync(path)) {
-        await fsPromise.unlink(path);
+      }).join('');
+      
+      // Añadir BOM para UTF-8 y escribir el archivo
+      const BOM = '\ufeff';
+      await fsPromise.writeFile(path, BOM + results, 'utf8');
+      
+      // Verificar archivo generado
+      const stats = await fsPromise.stat(path);
+      console.log(`✅ CSV creado exitosamente: ${path} (${stats.size} bytes)`);
+      console.log(`   Formato: CSV estándar con campos entrecomillados`);
+      console.log(`   Delimitador: punto y coma (;)`);
+      console.log(`   Codificación: UTF-8 con BOM`);
+      
+      return path;
+      
+    } catch (error) {
+      console.error('❌ Error creando CSV:', error);
+      
+      // Limpiar archivo parcial
+      try {
+        if (fs.existsSync(path)) {
+          await fsPromise.unlink(path);
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Error limpiando CSV parcial:', cleanupError);
       }
-    } catch (cleanupError) {
-      console.error('⚠️ Error limpiando CSV parcial:', cleanupError);
+      
+      throw new Error(`Error generando archivo CSV: ${error.message}`);
     }
-    
-    throw new Error(`Error generando archivo CSV: ${error.message}`);
   }
-}
+
   // ✅ MÉTODO removeExam MEJORADO
   async removeExam(path) {
     try {
@@ -505,6 +715,58 @@ async createCsvExam(questions) {
       console.error('Error getting storage stats:', error);
       return null;
     }
+  }
+
+  // ✅ NUEVO MÉTODO: Diagnóstico de problemas HTML
+  async diagnoseHtmlIssues(questions) {
+    console.log('\n🔍 Diagnóstico de problemas HTML en feedbacks:');
+    
+    const issues = {
+      malformedHtml: [],
+      problematicChars: [],
+      unclosedTags: [],
+      invalidColors: []
+    };
+    
+    questions.forEach((q, index) => {
+      if (!q.feedback) return;
+      
+      const feedback = q.feedback;
+      
+      // Verificar HTML mal formado
+      if (feedback.includes('<') && !feedback.includes('>')) {
+        issues.malformedHtml.push({ index, preview: feedback.substring(0, 50) });
+      }
+      
+      // Verificar caracteres problemáticos
+      if (/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/.test(feedback)) {
+        issues.problematicChars.push({ index, preview: feedback.substring(0, 50) });
+      }
+      
+      // Verificar tags no cerrados
+      const openTags = (feedback.match(/<[^/>]+>/g) || []).length;
+      const closeTags = (feedback.match(/<\/[^>]+>/g) || []).length;
+      if (openTags !== closeTags) {
+        issues.unclosedTags.push({ index, openTags, closeTags });
+      }
+      
+      // Verificar colores problemáticos
+      if (/color:\s*#(fff|ffffff|fefefe)/i.test(feedback)) {
+        issues.invalidColors.push({ index, preview: feedback.substring(0, 50) });
+      }
+    });
+    
+    // Reportar resultados
+    Object.entries(issues).forEach(([issueType, issueList]) => {
+      if (issueList.length > 0) {
+        console.log(`\n⚠️  ${issueType}: ${issueList.length} casos encontrados`);
+        issueList.slice(0, 3).forEach(issue => {
+          console.log(`   - Pregunta ${issue.index + 1}:`, issue);
+        });
+      }
+    });
+    
+    return issues;
   }
 }
 

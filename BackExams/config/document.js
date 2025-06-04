@@ -115,10 +115,27 @@ function createFeedbackRow(feedback) {
 
   // Si contiene HTML, usar el convertidor
   if (containsHtml(feedback)) {
-    const htmlElements = htmlToDocxElements(feedback);
+    let htmlElements = [];
+    
+    try {
+      // Llamar a la función y verificar el resultado
+      const result = htmlToDocxElements(feedback);
+      
+      // Verificar que el resultado sea un array
+      if (Array.isArray(result)) {
+        htmlElements = result;
+      } else {
+        console.warn('htmlToDocxElements no devolvió un array:', typeof result);
+        htmlElements = [];
+      }
+    } catch (error) {
+      console.error('Error convirtiendo HTML a docx:', error);
+      htmlElements = [];
+    }
     
     // Si el convertidor no devuelve elementos, usar texto plano como fallback
     if (htmlElements.length === 0) {
+      console.log('Usando fallback de texto plano para feedback HTML');
       return new TableRow({
         children: [
           new TableCell({
@@ -126,7 +143,7 @@ function createFeedbackRow(feedback) {
               new Paragraph({
                 children: [
                   new TextRun({ text: 'Retroalimentación: ', bold: true }),
-                  new TextRun({ text: feedback.replace(/<[^>]*>/g, '') })
+                  new TextRun({ text: feedback.replace(/<[^>]*>/g, '').trim() })
                 ],
               }),
             ],
@@ -140,9 +157,13 @@ function createFeedbackRow(feedback) {
       new Paragraph({
         children: [new TextRun({ text: 'Retroalimentación:', bold: true })],
         spacing: { after: 120 }
-      }),
-      ...htmlElements
+      })
     ];
+    
+    // Añadir los elementos HTML convertidos de forma segura
+    if (Array.isArray(htmlElements)) {
+      feedbackElements.push(...htmlElements);
+    }
 
     return new TableRow({
       children: [
