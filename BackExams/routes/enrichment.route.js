@@ -1,4 +1,4 @@
-// BackExams/routes/enrichment.route.js
+// BackExams/routes/enrichment.route.js - VERSIÓN COMPLETA CON SOPORTE DE TEMAS
 import express from 'express';
 import AIEnrichmentService from '../services/aiEnrichment.services.js';
 import QuestionService from '../services/questions.services.js';
@@ -38,12 +38,13 @@ router.post('/single', async (req, res, next) => {
       });
     }
     
-    // Enriquecer el feedback
+    // Enriquecer el feedback pasando el tema
     const enrichedFeedback = await aiService.enrichFeedback(
       question.feedback,
       question.question,
       question.correctAnswer,
-      provider
+      provider,
+      question.topic // AÑADIDO: pasar el tema para determinar colores
     );
     
     // Actualizar la pregunta con el feedback enriquecido
@@ -55,6 +56,7 @@ router.post('/single', async (req, res, next) => {
     res.json({
       success: true,
       questionId,
+      topic: question.topic, // AÑADIDO: incluir tema en respuesta
       originalFeedback: question.feedback,
       enrichedFeedback
     });
@@ -115,6 +117,25 @@ router.post('/batch', async (req, res, next) => {
       });
     }
     
+    // AÑADIDO: Agrupar por tema para logging
+    const questionsByTopic = {};
+    validQuestions.forEach(q => {
+      if (!questionsByTopic[q.topic]) {
+        questionsByTopic[q.topic] = 0;
+      }
+      questionsByTopic[q.topic]++;
+    });
+    
+    console.log(`\n📋 Distribución por temas:`);
+    Object.entries(questionsByTopic).forEach(([topic, count]) => {
+      const topicNum = parseInt(topic);
+      let blockType = 'General';
+      if (topicNum <= 26) blockType = 'Jurídicas';
+      else if (topicNum <= 37) blockType = 'Sociales';
+      else if (topicNum <= 45) blockType = 'Técnico-Científicas';
+      console.log(`   - Tema ${topic} (${blockType}): ${count} preguntas`);
+    });
+    
     // Enriquecer los feedbacks
     console.log(`\n🔄 Procesando ${validQuestions.length} preguntas...`);
     const enrichmentResults = await aiService.enrichMultipleFeedbacks(
@@ -122,7 +143,8 @@ router.post('/batch', async (req, res, next) => {
         id: q.id,
         question: q.question,
         correctAnswer: q.correctAnswer,
-        feedback: q.feedback
+        feedback: q.feedback,
+        topic: q.topic // AÑADIDO: incluir tema para colores
       })),
       provider
     );
@@ -150,6 +172,30 @@ router.post('/batch', async (req, res, next) => {
     // Obtener las preguntas actualizadas
     const updatedQuestions = await questionService.getAllQuestions();
     
+    // AÑADIDO: Estadísticas por bloque temático
+    const statsByBlock = {
+      juridicas: { total: 0, success: 0 },
+      sociales: { total: 0, success: 0 },
+      tecnicas: { total: 0, success: 0 },
+      otros: { total: 0, success: 0 }
+    };
+    
+    enrichmentResults.forEach(result => {
+      const question = validQuestions.find(q => q.id === result.id);
+      if (question) {
+        const topicNum = parseInt(question.topic);
+        let block = 'otros';
+        if (topicNum <= 26) block = 'juridicas';
+        else if (topicNum <= 37) block = 'sociales';
+        else if (topicNum <= 45) block = 'tecnicas';
+        
+        statsByBlock[block].total++;
+        if (result.status === 'success') {
+          statsByBlock[block].success++;
+        }
+      }
+    });
+    
     // Preparar respuesta detallada
     const response = {
       success: true,
@@ -163,11 +209,16 @@ router.post('/batch', async (req, res, next) => {
         omitidas: enrichmentResults.filter(r => r.status === 'skipped').length,
         errores: enrichmentResults.filter(r => r.status === 'error').length
       },
+      statsByBlock, // AÑADIDO: estadísticas por bloque
       results: enrichmentResults,
       questions: updatedQuestions
     };
     
     console.log('\n✅ Proceso completado:', response.summary);
+    console.log('\n📊 Estadísticas por bloque:');
+    console.log(`   🔴 Jurídicas: ${statsByBlock.juridicas.success}/${statsByBlock.juridicas.total}`);
+    console.log(`   🔵 Sociales: ${statsByBlock.sociales.success}/${statsByBlock.sociales.total}`);
+    console.log(`   🟢 Técnicas: ${statsByBlock.tecnicas.success}/${statsByBlock.tecnicas.total}`);
     
     res.json(response);
     
@@ -183,7 +234,7 @@ router.post('/batch', async (req, res, next) => {
 // Vista previa del enriquecimiento sin guardar
 router.post('/preview', async (req, res, next) => {
   try {
-    const { feedback, question, correctAnswer, provider = 'openai' } = req.body;
+    const { feedback, question, correctAnswer, provider = 'openai', topic } = req.body;
     
     if (!feedback) {
       return res.status(400).json({ 
@@ -199,16 +250,28 @@ router.post('/preview', async (req, res, next) => {
       });
     }
     
-    // Enriquecer el feedback
+    // AÑADIDO: Log del tema para debugging
+    if (topic) {
+      const topicNum = parseInt(topic);
+      let blockType = 'General';
+      if (topicNum <= 26) blockType = 'Jurídicas';
+      else if (topicNum <= 37) blockType = 'Sociales';
+      else if (topicNum <= 45) blockType = 'Técnico-Científicas';
+      console.log(`🎨 Vista previa para Tema ${topic} (${blockType})`);
+    }
+    
+    // Enriquecer el feedback con el tema para determinar colores
     const enrichedFeedback = await aiService.enrichFeedback(
       feedback,
       question || '',
       correctAnswer || '',
-      provider
+      provider,
+      topic || null // AÑADIDO: pasar el tema
     );
     
     res.json({
       success: true,
+      topic, // AÑADIDO: incluir tema en respuesta
       originalFeedback: feedback,
       enrichedFeedback
     });

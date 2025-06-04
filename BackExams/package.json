@@ -26,7 +26,12 @@
     "fix:html-format": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-html-format.js",
     "clean:prefixes": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/clean-feedback-prefixes.js",
     "fix:html-syntax": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-html-syntax.js",
-    "fix:invisible-text": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-invisible-text.js"
+    "fix:invisible-text": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/fix-invisible-text.js",
+    "enrich:containers": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js",
+    "enrich:containers-test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai 5",
+    "enrich:juridicas": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 1 26",
+    "enrich:sociales": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 27 37",
+    "enrich:tecnicas": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 38 45"
   },
   "keywords": [],
   "author": "",

@@ -1,16 +1,17 @@
-// BackExams/utils/htmlToDocx.js - VERSIÓN CORREGIDA Y ROBUSTA
+// BackExams/utils/htmlToDocx.js - VERSIÓN ACTUALIZADA PARA CONTENEDORES
 import docx from 'docx';
-import he from 'he'; // Para decodificar entidades HTML (&nbsp;, &amp;, etc.)
+import he from 'he';
 
 const { 
   Paragraph, 
   TextRun, 
   AlignmentType,
-  UnderlineType
+  UnderlineType,
+  BorderStyle
 } = docx;
 
 /**
- * Convierte HTML enriquecido a elementos de docx con manejo robusto de errores
+ * Convierte HTML enriquecido con contenedores a elementos de docx
  * @param {string} html - El HTML a convertir
  * @returns {Array} - Array de elementos docx (Paragraphs)
  */
@@ -19,81 +20,75 @@ export function htmlToDocxElements(html) {
   
   // Limpiar HTML problemático antes de procesar
   html = html.trim();
-  // Decodificar entidades (&nbsp;, &amp;, etc.)
+  // Decodificar entidades HTML
   html = he.decode(html);
   
   // Arreglar HTML mal formado común
-  html = html.replace(/<span([^>]*?)\/>/g, '<span$1></span>'); // Cerrar spans auto-cerrados
-  html = html.replace(/<strong([^>]*?)\/>/g, '<strong$1></strong>'); // Cerrar strongs auto-cerrados
+  html = html.replace(/<span([^>]*?)\/>/g, '<span$1></span>');
+  html = html.replace(/<strong([^>]*?)\/>/g, '<strong$1></strong>');
   
   const elements = [];
   
   try {
-    // Dividir por párrafos y elementos de bloque
-    const paragraphs = html.split(/(?:<\/p>|<\/div>|<\/blockquote>|<\/li>\s*<\/ul>|<\/li>\s*<\/ol>|<br\s*\/?>)/gi);
+    // Detectar si el HTML tiene un contenedor div principal
+    const containerMatch = html.match(/<div\s+style="([^"]*)">([\s\S]*?)<\/div>/i);
     
-    paragraphs.forEach(paragraphHtml => {
-      try {
-        paragraphHtml = paragraphHtml.replace(/<p[^>]*>/gi, '').trim();
-        paragraphHtml = paragraphHtml.replace(/<blockquote[^>]*>/gi, '').trim();
+    if (containerMatch) {
+      const containerStyle = containerMatch[1];
+      const innerContent = containerMatch[2];
+      
+      // Extraer colores del contenedor
+      const borderColorMatch = containerStyle.match(/border-left:\s*6px\s+solid\s+([^;]+)/i);
+      const bgColorMatch = containerStyle.match(/background-color:\s*([^;]+)/i);
+      
+      let borderColor = null;
+      let borderStyle = null;
+      
+      if (borderColorMatch) {
+        borderColor = convertColorForWord(borderColorMatch[1].trim());
         
-        if (!paragraphHtml) return;
-        
-        // Manejo de listas
-        if (paragraphHtml.includes('<ul>') || paragraphHtml.includes('<ol>')) {
-          const listItems = paragraphHtml.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
-          const ordered = paragraphHtml.includes('<ol>');
-          let counter = 1;
-          listItems.forEach(item => {
-            try {
-              const cleanItem = item.replace(/<\/?li[^>]*>/gi, '').trim();
-              const listRuns = parseInlineHtml(cleanItem);
-              if (listRuns.length > 0) {
-                elements.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({ text: ordered ? `${counter}. ` : '• ', bold: true }),
-                      ...listRuns
-                    ],
-                    indent: { left: 360 },
-                    spacing: { after: 120 }
-                  })
-                );
-                if (ordered) counter++;
-              }
-            } catch (e) {
-              console.error('Error procesando item de lista:', e);
+        // Determinar el tipo de contenedor por el color
+        const colorHex = borderColorMatch[1].trim().toLowerCase();
+        if (colorHex === '#dc3545' || colorHex.includes('dc3545')) {
+          // Rojo - Jurídicas
+          borderStyle = {
+            left: {
+              color: borderColor || 'DC3545',
+              size: 18, // 6px ≈ 18 twips
+              style: BorderStyle.SINGLE
             }
-          });
-          if (ordered) counter = 1; // reset for next paragraph
-        } else {
-          // Párrafo normal
-          const runs = parseInlineHtml(paragraphHtml);
-          if (runs.length > 0) {
-            elements.push(
-              new Paragraph({
-                children: runs,
-                alignment: AlignmentType.JUSTIFIED,
-                spacing: { after: 200 }
-              })
-            );
-          }
-        }
-      } catch (e) {
-        console.error('Error procesando párrafo:', e);
-        // Si hay error, intentar crear un párrafo simple con el texto
-        const plainText = paragraphHtml.replace(/<[^>]*>/g, '').trim();
-        if (plainText) {
-          elements.push(
-            new Paragraph({
-              children: [new TextRun({ text: plainText })],
-              alignment: AlignmentType.JUSTIFIED,
-              spacing: { after: 200 }
-            })
-          );
+          };
+        } else if (colorHex === '#0073e6' || colorHex.includes('0073e6')) {
+          // Azul - Sociales
+          borderStyle = {
+            left: {
+              color: borderColor || '0073E6',
+              size: 18,
+              style: BorderStyle.SINGLE
+            }
+          };
+        } else if (colorHex === '#28a745' || colorHex.includes('28a745')) {
+          // Verde - Técnicas
+          borderStyle = {
+            left: {
+              color: borderColor || '28A745',
+              size: 18,
+              style: BorderStyle.SINGLE
+            }
+          };
         }
       }
-    });
+      
+      // Procesar el contenido interno del contenedor
+      const innerElements = processHtmlContent(innerContent, borderStyle);
+      elements.push(...innerElements);
+      
+    } else {
+      // Si no hay contenedor, procesar normalmente
+      const processedElements = processHtmlContent(html);
+      elements.push(...processedElements);
+    }
+    
   } catch (e) {
     console.error('Error general en htmlToDocxElements:', e);
     // Fallback: devolver el texto sin HTML
@@ -107,6 +102,103 @@ export function htmlToDocxElements(html) {
       );
     }
   }
+  
+  return elements;
+}
+
+/**
+ * Procesa contenido HTML interno con soporte para bordes
+ * @param {string} html - HTML a procesar
+ * @param {Object} borderStyle - Estilo de borde opcional
+ * @returns {Array} - Array de Paragraphs
+ */
+function processHtmlContent(html, borderStyle = null) {
+  const elements = [];
+  
+  // Dividir por párrafos y elementos de bloque
+  const paragraphs = html.split(/(?:<\/p>|<\/div>|<\/blockquote>|<br\s*\/?>)/gi);
+  
+  paragraphs.forEach((paragraphHtml, index) => {
+    try {
+      paragraphHtml = paragraphHtml.replace(/<p[^>]*>/gi, '').trim();
+      paragraphHtml = paragraphHtml.replace(/<blockquote[^>]*>/gi, '').trim();
+      
+      if (!paragraphHtml) return;
+      
+      // Configuración base del párrafo
+      const paragraphOptions = {
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { after: 200 }
+      };
+      
+      // Aplicar borde y padding si es necesario
+      if (borderStyle && index === 0) {
+        // Solo aplicar borde al primer párrafo
+        paragraphOptions.border = borderStyle;
+        paragraphOptions.indent = { left: 360 }; // Padding izquierdo
+      } else if (borderStyle) {
+        // Párrafos subsiguientes solo con padding
+        paragraphOptions.indent = { left: 360 };
+      }
+      
+      // Manejo de listas
+      if (paragraphHtml.includes('<ul>') || paragraphHtml.includes('<ol>')) {
+        const listItems = paragraphHtml.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
+        const ordered = paragraphHtml.includes('<ol>');
+        let counter = 1;
+        
+        listItems.forEach(item => {
+          try {
+            const cleanItem = item.replace(/<\/?li[^>]*>/gi, '').trim();
+            const listRuns = parseInlineHtml(cleanItem);
+            if (listRuns.length > 0) {
+              const listParagraph = {
+                children: [
+                  new TextRun({ text: ordered ? `${counter}. ` : '• ', bold: true }),
+                  ...listRuns
+                ],
+                indent: { left: borderStyle ? 720 : 360 }, // Más indent si hay borde
+                spacing: { after: 120 }
+              };
+              
+              // Aplicar borde continuo a items de lista si es necesario
+              if (borderStyle) {
+                listParagraph.border = borderStyle;
+              }
+              
+              elements.push(new Paragraph(listParagraph));
+              if (ordered) counter++;
+            }
+          } catch (e) {
+            console.error('Error procesando item de lista:', e);
+          }
+        });
+      } else {
+        // Párrafo normal
+        const runs = parseInlineHtml(paragraphHtml);
+        if (runs.length > 0) {
+          elements.push(new Paragraph({
+            ...paragraphOptions,
+            children: runs
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Error procesando párrafo:', e);
+      // Si hay error, intentar crear un párrafo simple con el texto
+      const plainText = paragraphHtml.replace(/<[^>]*>/g, '').trim();
+      if (plainText) {
+        elements.push(
+          new Paragraph({
+            children: [new TextRun({ text: plainText })],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 200 },
+            ...(borderStyle && index === 0 ? { border: borderStyle, indent: { left: 360 } } : {})
+          })
+        );
+      }
+    }
+  });
   
   return elements;
 }
@@ -133,7 +225,7 @@ function parseInlineHtml(html) {
     };
     
     let styleStack = [{ ...baseStyle }];
-    let openTags = 0; // Contador para verificar balance de tags
+    let openTags = 0;
     
     const matches = html.match(regex) || [];
     
@@ -171,12 +263,6 @@ function parseInlineHtml(html) {
         } else if (match === '</mark>') {
           if (styleStack.length > 1) styleStack.pop();
           openTags--;
-        } else if (match.startsWith('<code')) {
-          styleStack.push({ ...currentStyle, color: '8B0000' });
-          openTags++;
-        } else if (match === '</code>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
         } else if (match.startsWith('<span')) {
           const newStyle = { ...currentStyle };
           
@@ -191,12 +277,23 @@ function parseInlineHtml(html) {
               newStyle.color = convertColorForWord(colorMatch[1].trim());
             }
             
-            // Extraer background-color y convertir a highlight
+            // Extraer background-color
             const bgMatch = styles.match(/background-color:\s*([^;]+)/);
             if (bgMatch) {
               const bgColor = bgMatch[1].trim().toLowerCase();
-              if (bgColor.match(/^#?ff(f3cd|eb3b|fd)$/) || bgColor.includes('yellow')) {
-                newStyle.highlight = true;
+              // Convertir colores específicos a highlight de Word
+              if (bgColor === '#ffd700' || bgColor === '#ffff00' || bgColor.includes('yellow')) {
+                newStyle.highlight = 'yellow';
+              } else if (bgColor === '#87ceeb' || bgColor.includes('87ceeb')) {
+                newStyle.highlight = 'lightBlue';
+              } else if (bgColor === '#98fb98' || bgColor.includes('98fb98')) {
+                newStyle.highlight = 'lightGreen';
+              } else if (bgColor === '#ffe4e1' || bgColor.includes('ffe4e1')) {
+                newStyle.highlight = 'lightGray';
+              } else if (bgColor === '#ffa500' || bgColor.includes('orange')) {
+                newStyle.highlight = 'yellow';
+              } else if (bgColor === '#ff6347' || bgColor.includes('ff6347')) {
+                newStyle.highlight = 'red';
               }
             }
             
@@ -231,14 +328,14 @@ function parseInlineHtml(html) {
             runOptions.underline = { type: UnderlineType.SINGLE };
           }
           
-          // Aplicar color (convertido para mejor visibilidad)
+          // Aplicar color
           if (style.color) {
             runOptions.color = style.color;
           }
           
-          // Aplicar highlight (amarillo)
+          // Aplicar highlight
           if (style.highlight) {
-            runOptions.highlight = 'yellow';
+            runOptions.highlight = style.highlight;
           }
           
           // Solo crear el TextRun si hay texto real
@@ -254,16 +351,6 @@ function parseInlineHtml(html) {
         }
       }
     });
-    
-    // Si los tags no están balanceados, resetear el stack
-    if (openTags !== 0) {
-      console.warn(`Tags desbalanceados detectados (${openTags}). Se insertará texto plano para evitar errores de formato.`);
-      const plain = html.replace(/<[^>]*>/g, '').trim();
-      if (plain) {
-        runs.length = 0; // limpiar cualquier run incorrecto
-        runs.push(new TextRun({ text: plain }));
-      }
-    }
     
   } catch (e) {
     console.error('Error en parseInlineHtml:', e);
@@ -281,7 +368,7 @@ function parseInlineHtml(html) {
 }
 
 /**
- * Convierte colores problemáticos a colores visibles en Word
+ * Convierte colores CSS a formato Word
  * @param {string} color - Color en formato CSS
  * @returns {string} - Color en formato hexadecimal para Word
  */
@@ -291,8 +378,22 @@ function convertColorForWord(color) {
   try {
     color = color.toLowerCase().trim();
     
-    // Mapa de conversión de colores problemáticos a colores visibles
+    // Mapa de conversión de colores
     const colorConversions = {
+      // Colores del sistema de contenedores
+      '#dc3545': 'DC3545', // Rojo (Jurídicas)
+      '#0073e6': '0073E6', // Azul (Sociales)
+      '#28a745': '28A745', // Verde (Técnicas)
+      '#6c757d': '6C757D', // Gris (General)
+      
+      // Colores de highlights
+      '#ffd700': 'FFD700', // Oro
+      '#87ceeb': '87CEEB', // Azul cielo
+      '#98fb98': '98FB98', // Verde claro
+      '#ffe4e1': 'FFE4E1', // Rosa claro
+      '#ffa500': 'FFA500', // Naranja
+      '#ff6347': 'FF6347', // Rojo tomate
+      
       // Colores muy claros → Colores oscuros equivalentes
       '#fff3cd': 'B8860B', // Amarillo muy claro → Dorado oscuro
       '#f8f9ff': '000080', // Azul muy claro → Azul marino
@@ -305,11 +406,12 @@ function convertColorForWord(color) {
       
       // Colores del sistema actual → Versiones más oscuras
       '#0066cc': '000080', // Azul → Azul marino
-      '#28a745': '006400', // Verde → Verde oscuro
-      '#fd7e14': 'CC5500', // Naranja → Naranja oscuro
-      '#dc3545': '8B0000', // Rojo → Rojo oscuro
-      '#1565c0': '000080', // Azul claro → Azul marino
-      '#6c757d': '333333', // Gris → Gris oscuro
+      '#000080': '000080', // Azul marino
+      '#006400': '006400', // Verde oscuro
+      '#8b0000': '8B0000', // Rojo oscuro
+      '#cc5500': 'CC5500', // Naranja oscuro
+      '#4b0082': '4B0082', // Índigo
+      '#8b4513': '8B4513', // Marrón
       
       // Colores CSS estándar
       'white': '000000',
@@ -337,19 +439,6 @@ function convertColorForWord(color) {
       
       // Validar hex
       if (/^[0-9A-F]{6}$/i.test(hex)) {
-        // Si es un color muy claro (alto valor de luminosidad), oscurecerlo
-        const r = parseInt(hex.substr(0, 2), 16);
-        const g = parseInt(hex.substr(2, 2), 16);
-        const b = parseInt(hex.substr(4, 2), 16);
-        
-        // Calcular luminosidad
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-        
-        // Si es muy claro (luminosidad > 0.8), convertir a un gris oscuro
-        if (luminance > 0.8) {
-          return '333333';
-        }
-        
         return hex;
       } else if (/^[0-9A-F]{3}$/i.test(hex)) {
         // Expandir hex corto
@@ -365,12 +454,6 @@ function convertColorForWord(color) {
         .map(val => parseInt(val, 10).toString(16).padStart(2, '0'))
         .join('')
         .toUpperCase();
-      
-      // Verificar luminosidad del RGB
-      const luminance = (0.299 * parseInt(r) + 0.587 * parseInt(g) + 0.114 * parseInt(b)) / 255;
-      if (luminance > 0.8) {
-        return '333333';
-      }
       
       return hex;
     }
