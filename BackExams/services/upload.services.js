@@ -112,8 +112,9 @@ async transformData(path) {
       
       await Questions.bulkCreate(csvData);
       const questions = await questionsService.getLastQuestions(csvData.length);
+      const fileNameWithoutExt = file.originalFilename.replace(/\.[^/.]+$/, '');
       await historicService.addRecord(
-        `Carga Auto. ${file.originalFilename}`, 
+        `Carga Auto. ${fileNameWithoutExt}`,  // Sin extensión
         questions, 
         'Multiple', 
         ''

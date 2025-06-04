@@ -1,5 +1,5 @@
-// BackExams/utils/htmlToDocx-improved.js
-// Versión mejorada del parser HTML con mejor manejo de errores
+// BackExams/utils/htmlToDocx-fixed.js
+// VERSIÓN COMPLETA - Solo corrige los problemas sin eliminar funcionalidad
 import docx from 'docx';
 import he from 'he';
 
@@ -12,6 +12,14 @@ const {
 } = docx;
 
 /**
+ * Detecta si el texto necesita decodificación
+ */
+function needsDecoding(html) {
+  // Si contiene entidades HTML, necesita decodificación
+  return /&[a-zA-Z]+;|&#\d+;|&#x[a-fA-F0-9]+;/.test(html);
+}
+
+/**
  * Valida y limpia HTML antes de procesarlo
  * @param {string} html - El HTML a limpiar
  * @returns {string} - HTML limpio y válido
@@ -21,13 +29,16 @@ function sanitizeHtml(html) {
   
   let cleaned = html;
   
-  // 1. Decodificar entities HTML
-  cleaned = he.decode(cleaned);
+  // 1. 🔴 CORRECCIÓN: Solo decodificar si es necesario
+  if (needsDecoding(cleaned)) {
+    cleaned = he.decode(cleaned);
+  }
   
-  // 2. Escapar < y > que no son parte de tags válidos
-  // Esto evita que caracteres como "< 5" rompan el parser
-  cleaned = cleaned.replace(/(<)(?![a-zA-Z\/!])/g, '&lt;');
-  cleaned = cleaned.replace(/(?<![a-zA-Z"\/>])>/g, '&gt;');
+  // 2. 🔴 CORRECCIÓN: Escapar SOLO casos específicos, no todos los < >
+  // Solo escapar cuando claramente NO son tags (ej: "< 5" o "5 >")
+  cleaned = cleaned.replace(/(<)\s+(\d)/g, '&lt; $2');
+  cleaned = cleaned.replace(/(\d)\s+(>)/g, '$1 &gt;');
+  // NO aplicar el regex general que rompe tags válidos
   
   // 3. Asegurar que todos los tags estén cerrados
   const openTags = [];
@@ -302,21 +313,27 @@ function parseInlineStyles(styleString) {
  * @returns {string} - Color en formato Word
  */
 function convertColorForWord(color) {
-  // ... (mantener la función existente)
-  // Copiar la implementación actual de convertColorForWord
-  
   if (!color) return null;
   
   try {
     color = color.toLowerCase().trim();
     
-    // Mapa de conversión existente...
+    // Mapa de conversión existente
     const colorConversions = {
       '#4b0082': '4B0082',
       '#000080': '000080',
       '#006400': '006400',
       '#8b0000': '8B0000',
-      // ... resto del mapa
+      '#0066cc': '0066CC',
+      '#28a745': '28A745',
+      '#fd7e14': 'FD7E14',
+      '#dc3545': 'DC3545',
+      '#1565c0': '1565C0',
+      'red': 'FF0000',
+      'blue': '0000FF',
+      'green': '008000',
+      'black': '000000',
+      'white': 'FFFFFF'
     };
     
     if (colorConversions[color]) {
