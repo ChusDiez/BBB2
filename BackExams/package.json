@@ -31,7 +31,13 @@
     "enrich:containers-test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai 5",
     "enrich:juridicas": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 1 26",
     "enrich:sociales": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 27 37",
-    "enrich:tecnicas": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 38 45"
+    "enrich:tecnicas": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/enrich-with-containers.js openai null 38 45",
+    "diagnose:word": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/diagnose-word-problem.js",
+  "test:word": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/test-word-generation.js",
+  "clean:word-temp": "rm -f ./test-document*.docx ./exams/*.docx",
+  "fix:feedback-html": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/clean-html-for-word.js",
+  "fix:html-validation": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/validate-and-fix-html.js",
+  "fix:html-validation-test": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --es-module-specifier-resolution=node scripts/validate-and-fix-html.js | head -50"
   },
   "keywords": [],
   "author": "",

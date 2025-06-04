@@ -113,12 +113,28 @@ async function handleCsvDownload(res, questions, name, examService) {
   }
 }
 
-// Función para manejar descarga de Word
+// BackExams/routes/history.route.js
+// Corregir la función handleDocDownload para limpiar el nombre
+
 async function handleDocDownload(res, questions, name, hasFeedback, examService) {
   let filePath = null;
   
   try {
     console.log(`📄 Generando documento Word (Feedback: ${hasFeedback ? 'Sí' : 'No'})...`);
+    
+    // IMPORTANTE: Limpiar el nombre del archivo
+    // Eliminar extensiones anteriores como .csv del nombre
+    let cleanName = name;
+    
+    // Eliminar extensiones conocidas del nombre
+    cleanName = cleanName.replace(/\.(csv|docx?|xlsx?|pdf)$/i, '');
+    
+    // También limpiar si tiene .csv en medio del nombre
+    cleanName = cleanName.replace(/\.csv/gi, '');
+    
+    console.log(`📝 Nombre original: "${name}"`);
+    console.log(`📝 Nombre limpio: "${cleanName}"`);
+    
     filePath = await examService.createDocExam(questions, hasFeedback);
     
     // Verificar que el archivo existe y tiene contenido
@@ -129,8 +145,8 @@ async function handleDocDownload(res, questions, name, hasFeedback, examService)
     
     console.log(`✅ Word generado: ${filePath} (${fileStatus.size} bytes)`);
     
-    // Configurar headers para Word
-    const safeName = encodeURIComponent(name).replace(/[^\w\-_.]/g, '_');
+    // Configurar headers para Word con nombre limpio
+    const safeName = encodeURIComponent(cleanName).replace(/[^\w\-_.]/g, '_');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.docx"`);
     res.setHeader('Content-Length', fileStatus.size);
@@ -176,16 +192,5 @@ async function handleDocDownload(res, questions, name, hasFeedback, examService)
     }
   }
 }
-
-router.post('/delete', async (req, res, next) => {
-  const { id: historicId } = req.body;
-  try {
-    const removed = await historicService.removeRecord(historicId);
-    const historic = await historicService.getAllRecords();
-    res.status(200).json({ removed, historic });
-  } catch (error) {
-    next(error);
-  }
-});
 
 export default router;

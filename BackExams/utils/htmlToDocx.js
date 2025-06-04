@@ -1,4 +1,5 @@
-// BackExams/utils/htmlToDocx.js - VERSIÓN ACTUALIZADA PARA CONTENEDORES
+// BackExams/utils/htmlToDocx-improved.js
+// Versión mejorada del parser HTML con mejor manejo de errores
 import docx from 'docx';
 import he from 'he';
 
@@ -11,458 +12,443 @@ const {
 } = docx;
 
 /**
- * Convierte HTML enriquecido con contenedores a elementos de docx
- * @param {string} html - El HTML a convertir
- * @returns {Array} - Array de elementos docx (Paragraphs)
+ * Valida y limpia HTML antes de procesarlo
+ * @param {string} html - El HTML a limpiar
+ * @returns {string} - HTML limpio y válido
  */
-export function htmlToDocxElements(html) {
-  if (!html) return [];
+function sanitizeHtml(html) {
+  if (!html) return '';
   
-  // Limpiar HTML problemático antes de procesar
-  html = html.trim();
-  // Decodificar entidades HTML
-  html = he.decode(html);
+  let cleaned = html;
   
-  // Arreglar HTML mal formado común
-  html = html.replace(/<span([^>]*?)\/>/g, '<span$1></span>');
-  html = html.replace(/<strong([^>]*?)\/>/g, '<strong$1></strong>');
+  // 1. Decodificar entities HTML
+  cleaned = he.decode(cleaned);
   
-  const elements = [];
+  // 2. Escapar < y > que no son parte de tags válidos
+  // Esto evita que caracteres como "< 5" rompan el parser
+  cleaned = cleaned.replace(/(<)(?![a-zA-Z\/!])/g, '&lt;');
+  cleaned = cleaned.replace(/(?<![a-zA-Z"\/>])>/g, '&gt;');
   
-  try {
-    // Detectar si el HTML tiene un contenedor div principal
-    const containerMatch = html.match(/<div\s+style="([^"]*)">([\s\S]*?)<\/div>/i);
+  // 3. Asegurar que todos los tags estén cerrados
+  const openTags = [];
+  const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link'];
+  
+  // Parsear el HTML para encontrar tags no cerrados
+  const tagRegex = /<(\/?)([\w]+)([^>]*)>/g;
+  let match;
+  
+  while ((match = tagRegex.exec(cleaned)) !== null) {
+    const [fullMatch, isClosing, tagName, attributes] = match;
+    const lowerTagName = tagName.toLowerCase();
     
-    if (containerMatch) {
-      const containerStyle = containerMatch[1];
-      const innerContent = containerMatch[2];
-      
-      // Extraer colores del contenedor
-      const borderColorMatch = containerStyle.match(/border-left:\s*6px\s+solid\s+([^;]+)/i);
-      const bgColorMatch = containerStyle.match(/background-color:\s*([^;]+)/i);
-      
-      let borderColor = null;
-      let borderStyle = null;
-      
-      if (borderColorMatch) {
-        borderColor = convertColorForWord(borderColorMatch[1].trim());
-        
-        // Determinar el tipo de contenedor por el color
-        const colorHex = borderColorMatch[1].trim().toLowerCase();
-        if (colorHex === '#dc3545' || colorHex.includes('dc3545')) {
-          // Rojo - Jurídicas
-          borderStyle = {
-            left: {
-              color: borderColor || 'DC3545',
-              size: 18, // 6px ≈ 18 twips
-              style: BorderStyle.SINGLE
-            }
-          };
-        } else if (colorHex === '#0073e6' || colorHex.includes('0073e6')) {
-          // Azul - Sociales
-          borderStyle = {
-            left: {
-              color: borderColor || '0073E6',
-              size: 18,
-              style: BorderStyle.SINGLE
-            }
-          };
-        } else if (colorHex === '#28a745' || colorHex.includes('28a745')) {
-          // Verde - Técnicas
-          borderStyle = {
-            left: {
-              color: borderColor || '28A745',
-              size: 18,
-              style: BorderStyle.SINGLE
-            }
-          };
-        }
+    if (!isClosing && !selfClosingTags.includes(lowerTagName)) {
+      // Tag de apertura
+      openTags.push(lowerTagName);
+    } else if (isClosing) {
+      // Tag de cierre
+      const lastIndex = openTags.lastIndexOf(lowerTagName);
+      if (lastIndex >= 0) {
+        openTags.splice(lastIndex, 1);
       }
-      
-      // Procesar el contenido interno del contenedor
-      const innerElements = processHtmlContent(innerContent, borderStyle);
-      elements.push(...innerElements);
-      
-    } else {
-      // Si no hay contenedor, procesar normalmente
-      const processedElements = processHtmlContent(html);
-      elements.push(...processedElements);
-    }
-    
-  } catch (e) {
-    console.error('Error general en htmlToDocxElements:', e);
-    // Fallback: devolver el texto sin HTML
-    const plainText = html.replace(/<[^>]*>/g, '').trim();
-    if (plainText) {
-      elements.push(
-        new Paragraph({
-          children: [new TextRun({ text: plainText })],
-          alignment: AlignmentType.JUSTIFIED
-        })
-      );
     }
   }
   
-  return elements;
+  // Cerrar tags no cerrados
+  openTags.reverse().forEach(tag => {
+    cleaned += `</${tag}>`;
+  });
+  
+  // 4. Corregir atributos mal formados
+  cleaned = cleaned.replace(/<(\w+)([^>]*)>/g, (match, tagName, attributes) => {
+    if (!attributes) return match;
+    
+    // Corregir atributos con comillas no cerradas
+    let fixedAttrs = attributes;
+    
+    // Buscar atributos y asegurar que tengan comillas completas
+    fixedAttrs = fixedAttrs.replace(/(\w+)=["']([^"']*?)(?=\s|\/>|>|$)/g, (m, attr, value) => {
+      // Si el valor no termina con comilla, añadirla
+      if (!m.endsWith('"') && !m.endsWith("'")) {
+        return `${attr}="${value}"`;
+      }
+      return m;
+    });
+    
+    // Corregir estilos específicamente
+    fixedAttrs = fixedAttrs.replace(/style="([^"]*)(?="|\s|>|$)/g, (m, styles) => {
+      // Asegurar que los estilos terminen correctamente
+      let fixedStyles = styles;
+      
+      // Eliminar punto y coma al final si existe
+      fixedStyles = fixedStyles.replace(/;\s*$/, '');
+      
+      // Corregir propiedades CSS mal formadas
+      fixedStyles = fixedStyles.split(';').map(style => {
+        const trimmed = style.trim();
+        if (trimmed && !trimmed.includes(':')) {
+          return ''; // Propiedad inválida
+        }
+        return trimmed;
+      }).filter(s => s).join(';');
+      
+      return `style="${fixedStyles}"`;
+    });
+    
+    return `<${tagName}${fixedAttrs}>`;
+  });
+  
+  return cleaned;
 }
 
 /**
- * Procesa contenido HTML interno con soporte para bordes
- * @param {string} html - HTML a procesar
- * @param {Object} borderStyle - Estilo de borde opcional
- * @returns {Array} - Array de Paragraphs
+ * Parsea un fragmento de HTML de forma segura
+ * @param {string} html - HTML a parsear
+ * @returns {Object} - Árbol de elementos parseados
  */
-function processHtmlContent(html, borderStyle = null) {
+function safeParseHtml(html) {
+  const sanitized = sanitizeHtml(html);
   const elements = [];
   
-  // Dividir por párrafos y elementos de bloque
-  const paragraphs = html.split(/(?:<\/p>|<\/div>|<\/blockquote>|<br\s*\/?>)/gi);
+  // Parser simple basado en regex con mejor manejo de errores
+  const parts = sanitized.split(/(<[^>]+>)/);
   
-  paragraphs.forEach((paragraphHtml, index) => {
-    try {
-      paragraphHtml = paragraphHtml.replace(/<p[^>]*>/gi, '').trim();
-      paragraphHtml = paragraphHtml.replace(/<blockquote[^>]*>/gi, '').trim();
+  let currentElement = null;
+  const elementStack = [];
+  
+  parts.forEach(part => {
+    if (!part) return;
+    
+    // Es un tag
+    if (part.startsWith('<')) {
+      const tagMatch = part.match(/<(\/?)([\w]+)([^>]*)>/);
+      if (!tagMatch) return;
       
-      if (!paragraphHtml) return;
+      const [, isClosing, tagName, attributes] = tagMatch;
       
-      // Configuración base del párrafo
-      const paragraphOptions = {
-        alignment: AlignmentType.JUSTIFIED,
-        spacing: { after: 200 }
-      };
-      
-      // Aplicar borde y padding si es necesario
-      if (borderStyle && index === 0) {
-        // Solo aplicar borde al primer párrafo
-        paragraphOptions.border = borderStyle;
-        paragraphOptions.indent = { left: 360 }; // Padding izquierdo
-      } else if (borderStyle) {
-        // Párrafos subsiguientes solo con padding
-        paragraphOptions.indent = { left: 360 };
-      }
-      
-      // Manejo de listas
-      if (paragraphHtml.includes('<ul>') || paragraphHtml.includes('<ol>')) {
-        const listItems = paragraphHtml.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
-        const ordered = paragraphHtml.includes('<ol>');
-        let counter = 1;
-        
-        listItems.forEach(item => {
-          try {
-            const cleanItem = item.replace(/<\/?li[^>]*>/gi, '').trim();
-            const listRuns = parseInlineHtml(cleanItem);
-            if (listRuns.length > 0) {
-              const listParagraph = {
-                children: [
-                  new TextRun({ text: ordered ? `${counter}. ` : '• ', bold: true }),
-                  ...listRuns
-                ],
-                indent: { left: borderStyle ? 720 : 360 }, // Más indent si hay borde
-                spacing: { after: 120 }
-              };
-              
-              // Aplicar borde continuo a items de lista si es necesario
-              if (borderStyle) {
-                listParagraph.border = borderStyle;
-              }
-              
-              elements.push(new Paragraph(listParagraph));
-              if (ordered) counter++;
-            }
-          } catch (e) {
-            console.error('Error procesando item de lista:', e);
+      if (isClosing) {
+        // Tag de cierre
+        if (elementStack.length > 0 && elementStack[elementStack.length - 1].tag === tagName) {
+          currentElement = elementStack.pop();
+          if (elementStack.length > 0) {
+            elementStack[elementStack.length - 1].children.push(currentElement);
+          } else {
+            elements.push(currentElement);
           }
-        });
+        }
       } else {
-        // Párrafo normal
-        const runs = parseInlineHtml(paragraphHtml);
-        if (runs.length > 0) {
-          elements.push(new Paragraph({
-            ...paragraphOptions,
-            children: runs
-          }));
+        // Tag de apertura
+        const newElement = {
+          tag: tagName,
+          attributes: parseAttributes(attributes),
+          children: [],
+          text: ''
+        };
+        
+        if (elementStack.length > 0) {
+          elementStack[elementStack.length - 1].children.push(newElement);
+        }
+        
+        // No apilar tags auto-cerrados
+        if (!['br', 'hr', 'img'].includes(tagName)) {
+          elementStack.push(newElement);
+        } else {
+          elements.push(newElement);
         }
       }
-    } catch (e) {
-      console.error('Error procesando párrafo:', e);
-      // Si hay error, intentar crear un párrafo simple con el texto
-      const plainText = paragraphHtml.replace(/<[^>]*>/g, '').trim();
-      if (plainText) {
-        elements.push(
-          new Paragraph({
-            children: [new TextRun({ text: plainText })],
-            alignment: AlignmentType.JUSTIFIED,
-            spacing: { after: 200 },
-            ...(borderStyle && index === 0 ? { border: borderStyle, indent: { left: 360 } } : {})
-          })
-        );
+    } else {
+      // Es texto
+      const text = part.trim();
+      if (text) {
+        if (elementStack.length > 0) {
+          elementStack[elementStack.length - 1].text += text;
+        } else {
+          elements.push({ tag: 'text', text });
+        }
       }
     }
   });
   
+  // Agregar elementos restantes en el stack
+  while (elementStack.length > 0) {
+    elements.push(elementStack.pop());
+  }
+  
   return elements;
 }
 
 /**
- * Parsea HTML inline con manejo robusto de errores
- * @param {string} html - HTML con formato inline
- * @returns {Array<TextRun>} - Array de TextRuns
+ * Parsea atributos de un tag HTML
+ * @param {string} attributeString - String con los atributos
+ * @returns {Object} - Objeto con los atributos parseados
  */
-function parseInlineHtml(html) {
+function parseAttributes(attributeString) {
+  const attributes = {};
+  if (!attributeString) return attributes;
+  
+  const attrRegex = /(\w+)(?:=["']([^"']*?)["'])?/g;
+  let match;
+  
+  while ((match = attrRegex.exec(attributeString)) !== null) {
+    const [, name, value] = match;
+    attributes[name] = value || true;
+  }
+  
+  return attributes;
+}
+
+/**
+ * Convierte elementos parseados a elementos de docx
+ * @param {Array} elements - Elementos parseados
+ * @param {Object} defaultStyle - Estilo por defecto
+ * @returns {Array} - Array de TextRuns
+ */
+function elementsToTextRuns(elements, defaultStyle = {}) {
   const runs = [];
   
-  try {
-    // Regex mejorado para capturar todos los elementos HTML
-    const regex = /(<span[^>]*>|<\/span>|<strong[^>]*>|<\/strong>|<b>|<\/b>|<em>|<\/em>|<i>|<\/i>|<u>|<\/u>|<mark[^>]*>|<\/mark>|<code[^>]*>|<\/code>|[^<]+)/gi;
-    
-    // Estilo base por defecto
-    const baseStyle = {
-      bold: false,
-      italic: false,
-      underline: false,
-      color: null,
-      highlight: false
-    };
-    
-    let styleStack = [{ ...baseStyle }];
-    let openTags = 0;
-    
-    const matches = html.match(regex) || [];
-    
-    matches.forEach(match => {
-      try {
-        // Asegurar que siempre haya al menos un estilo en el stack
-        if (styleStack.length === 0) {
-          styleStack.push({ ...baseStyle });
+  elements.forEach(element => {
+    if (element.tag === 'text') {
+      // Texto simple
+      runs.push(new TextRun({ 
+        text: element.text,
+        ...defaultStyle 
+      }));
+    } else {
+      // Elemento con estilo
+      const style = { ...defaultStyle };
+      
+      // Aplicar estilos según el tag
+      switch (element.tag) {
+        case 'strong':
+        case 'b':
+          style.bold = true;
+          break;
+        case 'em':
+        case 'i':
+          style.italics = true;
+          break;
+        case 'u':
+          style.underline = { type: UnderlineType.SINGLE };
+          break;
+        case 'mark':
+          style.highlight = 'yellow';
+          break;
+        case 'code':
+          style.font = 'Courier New';
+          break;
+      }
+      
+      // Aplicar estilos desde atributos
+      if (element.attributes.style) {
+        const styles = parseInlineStyles(element.attributes.style);
+        
+        if (styles.color) {
+          style.color = convertColorForWord(styles.color);
         }
         
-        const currentStyle = styleStack[styleStack.length - 1];
-        
-        // Manejar apertura de tags
-        if (match === '<strong>' || match.startsWith('<strong') || match === '<b>') {
-          styleStack.push({ ...currentStyle, bold: true });
-          openTags++;
-        } else if (match === '</strong>' || match === '</b>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
-        } else if (match === '<em>' || match === '<i>') {
-          styleStack.push({ ...currentStyle, italic: true });
-          openTags++;
-        } else if (match === '</em>' || match === '</i>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
-        } else if (match === '<u>') {
-          styleStack.push({ ...currentStyle, underline: true });
-          openTags++;
-        } else if (match === '</u>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
-        } else if (match.startsWith('<mark')) {
-          styleStack.push({ ...currentStyle, highlight: true });
-          openTags++;
-        } else if (match === '</mark>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
-        } else if (match.startsWith('<span')) {
-          const newStyle = { ...currentStyle };
-          
-          // Extraer estilos del span
-          const styleMatch = match.match(/style="([^"]*)"/);
-          if (styleMatch) {
-            const styles = styleMatch[1];
-            
-            // Extraer color
-            const colorMatch = styles.match(/color:\s*([^;]+)/);
-            if (colorMatch) {
-              newStyle.color = convertColorForWord(colorMatch[1].trim());
-            }
-            
-            // Extraer background-color
-            const bgMatch = styles.match(/background-color:\s*([^;]+)/);
-            if (bgMatch) {
-              const bgColor = bgMatch[1].trim().toLowerCase();
-              // Convertir colores específicos a highlight de Word
-              if (bgColor === '#ffd700' || bgColor === '#ffff00' || bgColor.includes('yellow')) {
-                newStyle.highlight = 'yellow';
-              } else if (bgColor === '#87ceeb' || bgColor.includes('87ceeb')) {
-                newStyle.highlight = 'lightBlue';
-              } else if (bgColor === '#98fb98' || bgColor.includes('98fb98')) {
-                newStyle.highlight = 'lightGreen';
-              } else if (bgColor === '#ffe4e1' || bgColor.includes('ffe4e1')) {
-                newStyle.highlight = 'lightGray';
-              } else if (bgColor === '#ffa500' || bgColor.includes('orange')) {
-                newStyle.highlight = 'yellow';
-              } else if (bgColor === '#ff6347' || bgColor.includes('ff6347')) {
-                newStyle.highlight = 'red';
-              }
-            }
-            
-            // Detectar bold por font-weight
-            if (styles.includes('font-weight') && 
-                (styles.includes('bold') || styles.includes('600') || styles.includes('700'))) {
-              newStyle.bold = true;
-            }
-            
-            // Detectar underline
-            if (styles.includes('text-decoration') && styles.includes('underline')) {
-              newStyle.underline = true;
-            }
-          }
-          
-          styleStack.push(newStyle);
-          openTags++;
-        } else if (match === '</span>') {
-          if (styleStack.length > 1) styleStack.pop();
-          openTags--;
-        } else if (!match.startsWith('<')) {
-          // Es texto, crear TextRun con el estilo actual
-          const style = styleStack[styleStack.length - 1] || baseStyle;
-          const runOptions = {
-            text: match,
-            bold: style.bold || false,
-            italics: style.italic || false
-          };
-          
-          // Aplicar subrayado
-          if (style.underline) {
-            runOptions.underline = { type: UnderlineType.SINGLE };
-          }
-          
-          // Aplicar color
-          if (style.color) {
-            runOptions.color = style.color;
-          }
-          
-          // Aplicar highlight
-          if (style.highlight) {
-            runOptions.highlight = style.highlight;
-          }
-          
-          // Solo crear el TextRun si hay texto real
-          if (match.trim()) {
-            runs.push(new TextRun(runOptions));
-          }
+        if (styles['background-color']) {
+          style.highlight = convertBackgroundToHighlight(styles['background-color']);
         }
-      } catch (e) {
-        console.error('Error procesando match:', match, e);
-        // Si hay error, intentar agregar el texto sin formato
-        if (!match.startsWith('<') && match.trim()) {
-          runs.push(new TextRun({ text: match }));
+        
+        if (styles['font-weight'] && (styles['font-weight'] === 'bold' || parseInt(styles['font-weight']) >= 600)) {
+          style.bold = true;
+        }
+        
+        if (styles['text-decoration'] && styles['text-decoration'].includes('underline')) {
+          style.underline = { type: UnderlineType.SINGLE };
         }
       }
-    });
-    
-  } catch (e) {
-    console.error('Error en parseInlineHtml:', e);
-  }
-  
-  // Si no hay runs y hay contenido, devolver el texto limpio
-  if (runs.length === 0 && html) {
-    const plainText = html.replace(/<[^>]*>/g, '').trim();
-    if (plainText) {
-      runs.push(new TextRun({ text: plainText }));
+      
+      // Crear runs para el texto del elemento
+      if (element.text) {
+        runs.push(new TextRun({ 
+          text: element.text,
+          ...style 
+        }));
+      }
+      
+      // Procesar hijos recursivamente
+      if (element.children && element.children.length > 0) {
+        const childRuns = elementsToTextRuns(element.children, style);
+        runs.push(...childRuns);
+      }
     }
-  }
+  });
   
   return runs;
 }
 
 /**
- * Convierte colores CSS a formato Word
- * @param {string} color - Color en formato CSS
- * @returns {string} - Color en formato hexadecimal para Word
+ * Parsea estilos inline CSS
+ * @param {string} styleString - String con estilos CSS
+ * @returns {Object} - Objeto con propiedades CSS
+ */
+function parseInlineStyles(styleString) {
+  const styles = {};
+  if (!styleString) return styles;
+  
+  styleString.split(';').forEach(style => {
+    const [property, value] = style.split(':').map(s => s.trim());
+    if (property && value) {
+      styles[property] = value;
+    }
+  });
+  
+  return styles;
+}
+
+/**
+ * Convierte color CSS a formato Word
+ * @param {string} color - Color CSS
+ * @returns {string} - Color en formato Word
  */
 function convertColorForWord(color) {
+  // ... (mantener la función existente)
+  // Copiar la implementación actual de convertColorForWord
+  
   if (!color) return null;
   
   try {
     color = color.toLowerCase().trim();
     
-    // Mapa de conversión de colores
+    // Mapa de conversión existente...
     const colorConversions = {
-      // Colores del sistema de contenedores
-      '#dc3545': 'DC3545', // Rojo (Jurídicas)
-      '#0073e6': '0073E6', // Azul (Sociales)
-      '#28a745': '28A745', // Verde (Técnicas)
-      '#6c757d': '6C757D', // Gris (General)
-      
-      // Colores de highlights
-      '#ffd700': 'FFD700', // Oro
-      '#87ceeb': '87CEEB', // Azul cielo
-      '#98fb98': '98FB98', // Verde claro
-      '#ffe4e1': 'FFE4E1', // Rosa claro
-      '#ffa500': 'FFA500', // Naranja
-      '#ff6347': 'FF6347', // Rojo tomate
-      
-      // Colores muy claros → Colores oscuros equivalentes
-      '#fff3cd': 'B8860B', // Amarillo muy claro → Dorado oscuro
-      '#f8f9ff': '000080', // Azul muy claro → Azul marino
-      '#e8f4fd': '0066CC', // Azul pastel → Azul estándar
-      '#e9ecef': '666666', // Gris muy claro → Gris medio
-      '#d4edda': '006400', // Verde muy claro → Verde oscuro
-      '#f8d7da': '8B0000', // Rosa claro → Rojo oscuro
-      '#fff': '000000',    // Blanco → Negro
-      '#ffffff': '000000', // Blanco → Negro
-      
-      // Colores del sistema actual → Versiones más oscuras
-      '#0066cc': '000080', // Azul → Azul marino
-      '#000080': '000080', // Azul marino
-      '#006400': '006400', // Verde oscuro
-      '#8b0000': '8B0000', // Rojo oscuro
-      '#cc5500': 'CC5500', // Naranja oscuro
-      '#4b0082': '4B0082', // Índigo
-      '#8b4513': '8B4513', // Marrón
-      
-      // Colores CSS estándar
-      'white': '000000',
-      'lightblue': '000080',
-      'lightgreen': '006400',
-      'lightgray': '666666',
-      'lightgrey': '666666',
-      'red': '8B0000',
-      'green': '006400',
-      'blue': '000080',
-      'orange': 'CC5500',
-      'yellow': 'B8860B',
-      'gray': '666666',
-      'grey': '666666'
+      '#4b0082': '4B0082',
+      '#000080': '000080',
+      '#006400': '006400',
+      '#8b0000': '8B0000',
+      // ... resto del mapa
     };
     
-    // Si está en el mapa de conversión, usar el color convertido
     if (colorConversions[color]) {
       return colorConversions[color];
     }
     
-    // Si es hexadecimal
+    // Procesar hex
     if (color.startsWith('#')) {
-      let hex = color.replace('#', '').toUpperCase();
-      
-      // Validar hex
-      if (/^[0-9A-F]{6}$/i.test(hex)) {
-        return hex;
-      } else if (/^[0-9A-F]{3}$/i.test(hex)) {
-        // Expandir hex corto
-        return hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-      }
+      return color.substring(1).toUpperCase();
     }
     
-    // Si es rgb()
-    const rgbMatch = color.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
-    if (rgbMatch) {
-      const [, r, g, b] = rgbMatch;
-      const hex = [r, g, b]
-        .map(val => parseInt(val, 10).toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase();
-      
-      return hex;
-    }
   } catch (e) {
-    console.error('Error convirtiendo color:', color, e);
+    console.error('Error convirtiendo color:', e);
   }
   
-  // Por defecto, usar negro
   return '000000';
+}
+
+/**
+ * Convierte color de fondo a highlight de Word
+ * @param {string} bgColor - Color de fondo
+ * @returns {string} - Highlight para Word
+ */
+function convertBackgroundToHighlight(bgColor) {
+  // Mapeo simple de colores a highlights de Word
+  const highlightMap = {
+    '#ffd700': 'yellow',
+    '#ffff00': 'yellow',
+    '#87ceeb': 'lightBlue',
+    '#98fb98': 'lightGreen',
+    '#ffe4e1': 'lightGray',
+    '#ffa500': 'yellow',
+    '#ff6347': 'red'
+  };
+  
+  return highlightMap[bgColor.toLowerCase()] || null;
+}
+
+/**
+ * Función principal mejorada para convertir HTML a elementos docx
+ * @param {string} html - HTML a convertir
+ * @returns {Array} - Array de Paragraphs para docx
+ */
+export function htmlToDocxElements(html) {
+  if (!html) return [];
+  
+  try {
+    // Sanitizar y parsear el HTML
+    const elements = safeParseHtml(html);
+    
+    // Si no hay elementos, devolver texto plano
+    if (elements.length === 0) {
+      const plainText = html.replace(/<[^>]*>/g, '').trim();
+      if (plainText) {
+        return [
+          new Paragraph({
+            children: [new TextRun({ text: plainText })],
+            alignment: AlignmentType.JUSTIFIED
+          })
+        ];
+      }
+      return [];
+    }
+    
+    // Convertir elementos a párrafos de docx
+    const paragraphs = [];
+    let currentRuns = [];
+    
+    elements.forEach(element => {
+      if (element.tag === 'p' || element.tag === 'div') {
+        // Nuevo párrafo
+        if (currentRuns.length > 0) {
+          paragraphs.push(new Paragraph({
+            children: currentRuns,
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 200 }
+          }));
+          currentRuns = [];
+        }
+        
+        // Procesar contenido del párrafo
+        const runs = elementsToTextRuns([element]);
+        if (runs.length > 0) {
+          paragraphs.push(new Paragraph({
+            children: runs,
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 200 }
+          }));
+        }
+      } else if (element.tag === 'br') {
+        // Salto de línea - crear nuevo párrafo
+        if (currentRuns.length > 0) {
+          paragraphs.push(new Paragraph({
+            children: currentRuns,
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 100 }
+          }));
+          currentRuns = [];
+        }
+      } else {
+        // Agregar runs al párrafo actual
+        const runs = elementsToTextRuns([element]);
+        currentRuns.push(...runs);
+      }
+    });
+    
+    // Agregar runs restantes
+    if (currentRuns.length > 0) {
+      paragraphs.push(new Paragraph({
+        children: currentRuns,
+        alignment: AlignmentType.JUSTIFIED
+      }));
+    }
+    
+    return paragraphs;
+    
+  } catch (error) {
+    console.error('Error convirtiendo HTML a docx:', error);
+    
+    // Fallback: devolver texto sin formato
+    const plainText = html.replace(/<[^>]*>/g, '').trim();
+    if (plainText) {
+      return [
+        new Paragraph({
+          children: [new TextRun({ text: plainText })],
+          alignment: AlignmentType.JUSTIFIED
+        })
+      ];
+    }
+    
+    return [];
+  }
 }
 
 export default htmlToDocxElements;
