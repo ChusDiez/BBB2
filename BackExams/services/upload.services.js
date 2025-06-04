@@ -114,7 +114,7 @@ async transformData(path) {
       const questions = await questionsService.getLastQuestions(csvData.length);
       const fileNameWithoutExt = file.originalFilename.replace(/\.[^/.]+$/, '');
       await historicService.addRecord(
-        `Carga Auto. ${fileNameWithoutExt}`,  // Sin extensión
+        `${fileNameWithoutExt}`,  // Sin extensión
         questions, 
         'Multiple', 
         ''
