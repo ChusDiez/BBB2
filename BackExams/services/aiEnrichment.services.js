@@ -162,7 +162,15 @@ IMPORTANTE:
 - NO repitas la pregunta ni la respuesta
 - NO añadas información nueva
 - NO incluyas prefijos como "PREGUNTA:", "RESPUESTA:", "FEEDBACK:"
-- Devuelve SOLO el HTML completo con el div contenedor`;
+- Devuelve SOLO el HTML completo con el div contenedor
+
+IMPORTANTE - SINTAXIS HTML CORRECTA:
+- Los atributos style SIEMPRE deben tener el formato: style="propiedad:valor;propiedad:valor"
+- NUNCA cerrar comillas antes de completar el valor del style
+- Para colores, SIEMPRE usar: style="color:#valor"
+- Para bordes, usar: style="border-left:6px solid #color"
+- NO dejar style="" vacío
+- NO poner valores de color sin la propiedad "color:"`
   }
 
   async enrichFeedback(originalFeedback, question, correctAnswer, provider = 'openai', topic = null) {
