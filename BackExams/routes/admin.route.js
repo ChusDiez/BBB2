@@ -10,18 +10,19 @@ const searchService = new SearchService();
 
 router.get('/', async (req, res, next) => {
   try {
-    const { query, block, topic } = req.query;
+    const { query, block, topic, hasHtml } = req.query; // Añadir hasHtml
     
     // Convertir a números si existen
     const blockNum = block ? Number(block) : 0;
     const topicNum = topic ? Number(topic) : 0;
     
     // Si hay algún parámetro de búsqueda, usar el servicio de búsqueda
-    if (query || blockNum || topicNum) {
+    if (query || blockNum || topicNum || hasHtml !== undefined) {
       const result = await searchService.searchQuestionsByQuery(
         query || '', 
         blockNum, 
-        topicNum
+        topicNum,
+        hasHtml // Pasar el nuevo parámetro
       );
       res.json(result);
     } else {

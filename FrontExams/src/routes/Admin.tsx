@@ -24,6 +24,10 @@ export default function Admin() {
   const [enrichmentProvider, setEnrichmentProvider] = useState<'openai' | 'anthropic'>('openai');
   const [availableProviders, setAvailableProviders] = useState<any>({});
   const [showPreviewFor, setShowPreviewFor] = useState<number | null>(null);
+  
+  // NUEVO: Estados para filtros locales simples
+  const [showOnlyWithoutHtml, setShowOnlyWithoutHtml] = useState(false);
+  const [showOnlyWithFeedback, setShowOnlyWithFeedback] = useState(false);
 
   // Cargar proveedores disponibles solo una vez
   useEffect(() => {
@@ -32,7 +36,7 @@ export default function Admin() {
       .catch(console.error);
   }, []);
 
-  // Toggle selección de pregunta
+  // Toggle selección de pregunta individual
   const toggleQuestionSelection = useCallback((questionId: number) => {
     setSelectedQuestions(prev => {
       const newSet = new Set(prev);
@@ -45,14 +49,18 @@ export default function Admin() {
     });
   }, []);
 
-  // Seleccionar/deseleccionar todas
-  const toggleSelectAll = useCallback(() => {
-    if (selectedQuestions.size === questions.length) {
-      setSelectedQuestions(new Set());
-    } else {
-      setSelectedQuestions(new Set(questions.map(q => q.id)));
-    }
-  }, [questions, selectedQuestions.size]);
+  // NUEVO: Función mejorada para seleccionar preguntas sin HTML
+  const selectQuestionsWithoutHtml = useCallback(() => {
+    const withoutHtml = questions
+      .filter(q => q.feedback && !q.feedback.includes('<'))
+      .map(q => q.id);
+    setSelectedQuestions(new Set(withoutHtml));
+  }, [questions]);
+
+  // Función para deseleccionar todas
+  const deselectAll = useCallback(() => {
+    setSelectedQuestions(new Set());
+  }, []);
 
   // Enriquecer preguntas seleccionadas
   const enrichSelectedQuestions = async () => {
@@ -85,10 +93,8 @@ export default function Admin() {
 
       if (data.success) {
         alert(`✅ Se enriquecieron exitosamente ${data.successfullyEnriched} de ${data.totalProcessed} preguntas`);
-        // ⚠️ Parche rápido: recargar la página para refrescar los nuevos feedbacks
         window.location.reload();
         setSelectedQuestions(new Set());
-        // Las preguntas se actualizarán automáticamente desde el store
       }
     } catch (error) {
       console.error('Error al enriquecer preguntas:', error);
@@ -96,6 +102,25 @@ export default function Admin() {
     } finally {
       setIsEnriching(false);
     }
+  };
+
+  // NUEVO: Aplicar filtros locales a las preguntas
+  const filteredQuestions = questions.filter(q => {
+    if (showOnlyWithoutHtml && q.feedback && q.feedback.includes('<')) {
+      return false;
+    }
+    if (showOnlyWithFeedback && !q.feedback) {
+      return false;
+    }
+    return true;
+  });
+
+  // NUEVO: Calcular estadísticas
+  const stats = {
+    total: questions.length,
+    withHtml: questions.filter(q => q.feedback && q.feedback.includes('<')).length,
+    withoutHtml: questions.filter(q => q.feedback && !q.feedback.includes('<')).length,
+    withoutFeedback: questions.filter(q => !q.feedback).length
   };
 
   if (isLoading) {
@@ -108,65 +133,52 @@ export default function Admin() {
     );
   }
 
-  // Determinar si hay búsqueda activa
-  const hasActiveSearch = searchParams && (
-    searchParams.query || 
-    searchParams.block || 
-    searchParams.topic
-  );
-
-  // Obtener información de los filtros activos
-  const getActiveFilters = () => {
-    const filters = [];
-    if (searchParams?.query) {
-      filters.push(`Texto: "${searchParams.query}"`);
-    }
-    if (searchParams?.block) {
-      filters.push(`Bloque: ${searchParams.block}`);
-    }
-    if (searchParams?.topic) {
-      const topicName = categories.find(c => c.topic.toString() === searchParams.topic)?.name;
-      filters.push(`Tema: ${searchParams.topic}${topicName ? ` - ${topicName}` : ''}`);
-    }
-    return filters;
-  };
-
-  const activeFilters = getActiveFilters();
-
   return (
     <div className="admin">
       <h1 className="fw-semibold fs-4 mb-4">Administrador</h1>
+      
+      {/* Panel de información y controles principales */}
       <div className="p-4 mb-4 bg-white rounded">
-        <div className="d-flex align-items-center">
+        <div className="d-flex align-items-center justify-content-between">
           <div className="flex-grow-1">
-            <p className="text-gray-light mb-0">
+            <p className="text-gray-light mb-2">
               Ver, añadir, editar y eliminar las preguntas
             </p>
-            {hasActiveSearch && (
-              <div className="mt-2">
-                <p className="text-primary small mb-1">
-                  <i className="bi bi-funnel-fill me-2"></i>
-                  Mostrando {questions.length} pregunta{questions.length !== 1 ? 's' : ''} filtradas
-                </p>
-                {activeFilters.length > 0 && (
-                  <div className="d-flex flex-wrap gap-2 mt-2">
-                    {activeFilters.map((filter, index) => (
-                      <span key={index} className="badge bg-light text-dark border">
-                        {filter}
-                      </span>
-                    ))}
-                  </div>
-                )}
+            
+            {/* NUEVO: Estadísticas de formato */}
+            {questions.length > 0 && (
+              <div className="d-flex gap-4 small text-muted">
+                <span>
+                  <i className="bi bi-database me-1"></i>
+                  Total: <strong>{stats.total}</strong>
+                </span>
+                <span>
+                  <i className="bi bi-check-circle-fill text-success me-1"></i>
+                  Con HTML: <strong>{stats.withHtml}</strong>
+                </span>
+                <span>
+                  <i className="bi bi-exclamation-circle-fill text-warning me-1"></i>
+                  Sin formato: <strong>{stats.withoutHtml}</strong>
+                </span>
+                <span>
+                  <i className="bi bi-dash-circle text-muted me-1"></i>
+                  Sin feedback: <strong>{stats.withoutFeedback}</strong>
+                </span>
               </div>
             )}
           </div>
-          <div className="d-flex gap-2">
+          
+          <div className="d-flex gap-2 align-items-center">
+            {/* Mostrar info de selección cuando hay seleccionadas */}
+            {selectedQuestions.size > 0 && (
+              <div className="text-primary small">
+                <strong>{selectedQuestions.size}</strong> seleccionadas
+              </div>
+            )}
+            
             {/* Controles de enriquecimiento con IA */}
             {selectedQuestions.size > 0 && availableProviders.hasAny && (
               <div className="d-flex align-items-center gap-2 me-3">
-                <span className="badge bg-info">
-                  {selectedQuestions.size} seleccionada{selectedQuestions.size !== 1 ? 's' : ''}
-                </span>
                 <select 
                   className="form-select form-select-sm"
                   value={enrichmentProvider}
@@ -196,6 +208,8 @@ export default function Admin() {
                 </button>
               </div>
             )}
+            
+            {/* Botón de añadir pregunta */}
             <button
               className="btn btn-action"
               type="button"
@@ -208,33 +222,73 @@ export default function Admin() {
         </div>
       </div>
       
-      {questions.length === 0 ? (
+      {/* NUEVO: Filtros locales simples */}
+      <div className="mb-3 d-flex gap-3 bg-light p-3 rounded">
+        <div className="form-check">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="showOnlyWithoutHtml"
+            checked={showOnlyWithoutHtml}
+            onChange={(e) => setShowOnlyWithoutHtml(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="showOnlyWithoutHtml">
+            Mostrar solo sin formato HTML
+          </label>
+        </div>
+        <div className="form-check">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="showOnlyWithFeedback"
+            checked={showOnlyWithFeedback}
+            onChange={(e) => setShowOnlyWithFeedback(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="showOnlyWithFeedback">
+            Mostrar solo con feedback
+          </label>
+        </div>
+        {/* Mostrar cuántas se están mostrando si hay filtros activos */}
+        {(showOnlyWithoutHtml || showOnlyWithFeedback) && (
+          <span className="ms-auto text-muted small">
+            Mostrando {filteredQuestions.length} de {questions.length} preguntas
+          </span>
+        )}
+      </div>
+      
+      {filteredQuestions.length === 0 ? (
         <div className="text-center p-5">
           <i className="bi bi-search fs-1 text-muted"></i>
           <p className="text-muted mt-3">
-            {hasActiveSearch 
-              ? 'No se encontraron preguntas con los criterios de búsqueda especificados' 
+            {(showOnlyWithoutHtml || showOnlyWithFeedback) 
+              ? 'No hay preguntas que coincidan con los filtros seleccionados' 
               : 'No hay preguntas registradas'}
           </p>
-          {hasActiveSearch && (
-            <p className="text-muted small">
-              Intenta modificar los filtros de búsqueda
-            </p>
-          )}
         </div>
       ) : (
         <div className="px-2">
           <table className="table table-hover align-middle mb-0 px-3">
             <thead>
               <tr>
-                <th style={{ width: '50px' }}>
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={selectedQuestions.size === questions.length && questions.length > 0}
-                    onChange={toggleSelectAll}
-                    title="Seleccionar todas"
-                  />
+                {/* NUEVO: Encabezado mejorado con botones de selección */}
+                <th style={{ width: '140px' }}>
+                  <div className="d-flex gap-1">
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={selectQuestionsWithoutHtml}
+                      title="Seleccionar todas las preguntas sin formato HTML"
+                    >
+                      <i className="bi bi-check-square me-1"></i>
+                      Sin HTML
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={deselectAll}
+                      title="Deseleccionar todas"
+                    >
+                      <i className="bi bi-square"></i>
+                    </button>
+                  </div>
                 </th>
                 <th className="text-truncate" style={{ width: '50%' }}>
                   Pregunta
@@ -257,10 +311,9 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {questions.map((question) => (
+              {filteredQuestions.map((question) => (
                 <Fragment key={question.id}>
                   <tr
-                    key={question.id}
                     className={selectedQuestions.has(question.id) ? 'table-active' : ''}
                   >
                     <td onClick={(e) => e.stopPropagation()}>
@@ -286,20 +339,44 @@ export default function Admin() {
                     <td className="text-nowrap text-center">
                       {question.topic}
                     </td>
+                    {/* NUEVO: Columna de feedback mejorada con indicadores visuales */}
                     <td className="text-center">
                       {question.feedback ? (
-                        <button
-                          className="btn btn-sm btn-link p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowPreviewFor(showPreviewFor === question.id ? null : question.id);
-                          }}
-                          title="Ver vista previa del feedback"
-                        >
-                          <i className="bi bi-chat-left-text-fill text-primary fs-5"></i>
-                        </button>
+                        <div className="d-flex justify-content-center align-items-center gap-1">
+                          {/* Indicador más claro del estado del feedback */}
+                          {question.feedback.includes('<') ? (
+                            <span 
+                              className="badge bg-success" 
+                              title="Feedback con formato HTML enriquecido"
+                            >
+                              <i className="bi bi-check-circle-fill me-1"></i>
+                              HTML
+                            </span>
+                          ) : (
+                            <span 
+                              className="badge bg-warning text-dark" 
+                              title="Feedback sin formato - Necesita enriquecimiento"
+                            >
+                              <i className="bi bi-exclamation-circle-fill me-1"></i>
+                              Texto
+                            </span>
+                          )}
+                          {/* Botón de preview */}
+                          <button
+                            className="btn btn-sm btn-link p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowPreviewFor(showPreviewFor === question.id ? null : question.id);
+                            }}
+                            title="Ver vista previa"
+                          >
+                            <i className="bi bi-eye"></i>
+                          </button>
+                        </div>
                       ) : (
-                        <i className="bi bi-dash text-muted"></i>
+                        <span className="text-muted">
+                          <i className="bi bi-dash"></i> Sin feedback
+                        </span>
                       )}
                     </td>
                     <td>

@@ -5,9 +5,7 @@ import Questions from '../models/questions.model.js';
 class SearchService {
   async searchQuestionsByQuery(query, block, topic) {
     const whereConditions = [];
-    
-    // Construir condiciones de búsqueda de forma independiente
-    
+        
     // Si hay query de texto, crear condición OR para buscar en todos los campos
     if (query && query.trim() !== '') {
       whereConditions.push({
@@ -30,7 +28,28 @@ class SearchService {
     if (topic && topic !== 0 && topic !== '0') {
       whereConditions.push({ topic: Number(topic) });
     }
-    
+      // Nuevo filtro para HTML en feedback
+    if (hasHtml !== undefined && hasHtml !== null) {
+      if (hasHtml === 'false' || hasHtml === false) {
+        // Buscar feedbacks SIN HTML
+        whereConditions.push({
+          [Op.or]: [
+            { feedback: null },
+            { feedback: { [Op.notLike]: '%<%' } }
+          ]
+        });
+      } else if (hasHtml === 'true' || hasHtml === true) {
+        // Buscar feedbacks CON HTML
+        whereConditions.push({
+          feedback: {
+            [Op.and]: [
+              { [Op.ne]: null },
+              { [Op.like]: '%<%' }
+            ]
+          }
+        });
+      }
+    }
     // Construir el objeto where final
     const whereClause = whereConditions.length > 0 
       ? { [Op.and]: whereConditions }

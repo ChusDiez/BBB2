@@ -38,7 +38,7 @@ export default function NavBar() {
     if (querySearch.topic && querySearch.topic !== '0') {
       searchParams.topic = querySearch.topic;
     }
-    
+
     if (location.pathname.includes('admin')) {
       await searchQuestions(searchParams);
     } else {
@@ -61,6 +61,7 @@ export default function NavBar() {
       query: '',
       block: '0',
       topic: '0',
+      
     });
     
     if (location.pathname.includes('admin')) {

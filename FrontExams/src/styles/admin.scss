@@ -14,3 +14,39 @@
     font-size: 0.875rem;
   }
 }
+// Estilos adicionales para la página de administrador mejorada
+.admin {
+  // Estilos para los filtros
+  .form-check-input:checked {
+    background-color: var(--action-button);
+    border-color: var(--action-button);
+  }
+  
+  // Estilos para los badges de estado
+  .badge {
+    font-weight: 500;
+    font-size: 0.75rem;
+    
+    &.bg-warning {
+      background-color: #ffc107 !important;
+    }
+    
+    &.bg-success {
+      background-color: #198754 !important;
+    }
+  }
+  
+  // Mejora visual para las filas seleccionadas
+  .table-active {
+    background-color: rgba(0, 123, 255, 0.08) !important;
+    
+    &:hover {
+      background-color: rgba(0, 123, 255, 0.12) !important;
+    }
+  }
+  
+  // Estilos para el panel de filtros
+  .bg-light {
+    background-color: #f8f9fa !important;
+  }
+}
