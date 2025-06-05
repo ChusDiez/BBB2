@@ -86,7 +86,7 @@ async transformData(path) {
   });
 }
 
-  async insertCSV(file) {
+    async insertCSV(file) {
     try {
       const csvData = await this.transformData(file.path);
       
@@ -114,7 +114,7 @@ async transformData(path) {
       const questions = await questionsService.getLastQuestions(csvData.length);
       const fileNameWithoutExt = file.originalFilename.replace(/\.[^/.]+$/, '');
       await historicService.addRecord(
-        `${fileNameWithoutExt}`,  // Sin extensión
+        `${fileNameWithoutExt}`,
         questions, 
         'Multiple', 
         ''
@@ -127,12 +127,24 @@ async transformData(path) {
       };
     } catch (e) {
       console.error('Error al procesar CSV:', e);
-      // eslint-disable-next-line no-throw-literal
-      throw {
+      
+      // Crear un objeto de error consistente
+      const errorObj = {
         message: e.message || 'Error al procesar el archivo CSV',
         fileName: file.originalFilename,
         error: e,
       };
+      
+      // Si es un error de base de datos, incluir la información SQL
+      if (e.original && e.original.sqlMessage) {
+        errorObj.original = {
+          sqlMessage: e.original.sqlMessage,
+          code: e.original.code,
+          errno: e.original.errno
+        };
+      }
+      
+      throw errorObj;
     }
   }
 }

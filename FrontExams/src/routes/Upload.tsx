@@ -52,20 +52,38 @@ export default function Upload() {
           />
         </div>
         {result && (
-        <div className="d-flex flex-column gap-2 small">
-          {result.map((file: Record<string, any>, i: number) => (
-            <p
-              key={i}
-              className={classNames({
-                'text-danger': file.status === 'rejected',
-              })}
-            >
-              {file.status === 'fulfilled'
-                ? `El archivo ${file.value.fileName} se cargó correctamente`
-                : `El archivo ${file.reason.fileName} no se pudo cargar - ${file.reason.original.sqlMessage}`}
-            </p>
-          ))}
-        </div>
+          <div className="d-flex flex-column gap-2 small">
+            {result.map((file: Record<string, any>, i: number) => {
+              // Determinar el mensaje de error de manera segura
+              let errorMessage = 'Error desconocido';
+              
+              if (file.status === 'rejected' && file.reason) {
+                // Intentar obtener el mensaje de error de diferentes fuentes
+                if (file.reason.original?.sqlMessage) {
+                  errorMessage = file.reason.original.sqlMessage;
+                } else if (file.reason.error?.message) {
+                  errorMessage = file.reason.error.message;
+                } else if (file.reason.message) {
+                  errorMessage = file.reason.message;
+                } else if (typeof file.reason === 'string') {
+                  errorMessage = file.reason;
+                }
+              }
+              
+              return (
+                <p
+                  key={i}
+                  className={classNames({
+                    'text-danger': file.status === 'rejected',
+                  })}
+                >
+                  {file.status === 'fulfilled'
+                    ? `El archivo ${file.value.fileName} se cargó correctamente`
+                    : `El archivo ${file.reason?.fileName || 'desconocido'} no se pudo cargar - ${errorMessage}`}
+                </p>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
