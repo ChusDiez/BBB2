@@ -108,70 +108,50 @@ class AIEnrichmentService {
     return fixed;
   }
 
-  /**
-   * Build the prompt that will be sent to the LLM with container styling
-   */
-  buildPrompt(originalFeedback, question, correctAnswer, colorScheme) {
-    return `Eres un asistente experto en educación que formatea retroalimentación de exámenes.
+buildPrompt(originalFeedback, question, correctAnswer, colorScheme) {
+  return `Eres un asistente experto en educación y derecho español que formatea retroalimentación de exámenes con precisión académica.
 
-CONTEXT INFORMATION (NO incluir en la salida):
+CONTEXTO DEL EXAMEN:
 - Pregunta: ${question}
 - Respuesta correcta: ${correctAnswer}
 - Bloque temático: ${colorScheme.blockName}
 
-TEXTO A FORMATEAR:
+TEXTO A ENRIQUECER:
 ${originalFeedback}
 
-INSTRUCCIONES CRÍTICAS:
-1. TODO el contenido DEBE estar envuelto en un contenedor DIV con el siguiente estilo EXACTO:
-   <div style="background-color:${colorScheme.backgroundColor};border-left:6px solid ${colorScheme.borderColor};font-family:Arial,sans-serif;margin:20px 0;padding:15px;">
-   
-2. DENTRO del div, aplica formato HTML enriquecido al texto según estas reglas:
+INSTRUCCIONES DE FORMATO:
 
-ELEMENTOS ESTRUCTURALES (colores OSCUROS y CONTRASTADOS):
-- Leyes completas (Ley 8/2011, LO 4/2015, RD 704/2011): <span style="background-color:#FFD700;color:#000000;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #DAA520">TEXTO</span>
-- Artículos específicos (art. 36.23, artículo 4.3): <span style="background-color:#87CEEB;color:#000080;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #4682B4">TEXTO</span>
-- Conceptos técnicos clave: <span style="background-color:#98FB98;color:#006400;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #32CD32">TEXTO</span>
-
-ELEMENTOS SEMÁNTICOS DESTACADOS:
-- Definiciones importantes: <span style="background-color:#FFE4E1;color:#8B0000;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #CD5C5C">TEXTO</span>
-- Datos numéricos/estadísticas/porcentajes: <span style="background-color:#FFA500;color:#FFFFFF;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #FF8C00">TEXTO</span>
-- Elementos críticos/excepciones: <span style="background-color:#FF6347;color:#FFFFFF;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #DC143C">TEXTO</span>
-- Términos muy importantes: <mark style="background-color:#FFFF00;color:#000000;padding:2px 6px;font-weight:600;border:1px solid #FFD700">TEXTO</mark>
-
-ELEMENTOS BÁSICOS MEJORADOS:
-- Texto muy importante: <strong style="color:#000080">TEXTO</strong>
-- Énfasis medio: <em style="color:#8B4513">TEXTO</em>
-- Subrayado simple: <u style="color:#4B0082;text-decoration-color:#4B0082">TEXTO</u>
-
-FORMATO ESTRUCTURAL:
-- Si el texto tiene múltiples párrafos, sepáralos con <p> tags
-- Si hay listas, usa <ul> y <li>
-- Mantén saltos de línea importantes con <br> cuando sea necesario
-
-3. ESTRUCTURA FINAL OBLIGATORIA:
+1. CONTENEDOR OBLIGATORIO:
 <div style="background-color:${colorScheme.backgroundColor};border-left:6px solid ${colorScheme.borderColor};font-family:Arial,sans-serif;margin:20px 0;padding:15px;">
-  [CONTENIDO FORMATEADO AQUÍ]
-</div>
 
-IMPORTANTE:
-- USA PUNTO Y COMA (;) para separar propiedades CSS, NUNCA comas
-- USA COMILLAS DOBLES (") para atributos, no comillas simples
-- NO pongas punto y coma al final del último estilo
-- El div contenedor es OBLIGATORIO
-- NO repitas la pregunta ni la respuesta
-- NO añadas información nueva
-- NO incluyas prefijos como "PREGUNTA:", "RESPUESTA:", "FEEDBACK:"
-- Devuelve SOLO el HTML completo con el div contenedor
+2. IDENTIFICACIÓN INTELIGENTE DE ELEMENTOS:
+Analiza el contexto para identificar correctamente:
+- Referencias legales completas (incluyendo variantes como "L.O.", "RD", "Real Decreto-ley")
+- Artículos con sus apartados (ej: "art. 36.2.a)", "artículo 4 bis")
+- Conceptos jurídicos y técnicos relevantes al tema
+- Fechas importantes y plazos legales
+- Porcentajes y datos estadísticos
 
-IMPORTANTE - SINTAXIS HTML CORRECTA:
-- Los atributos style SIEMPRE deben tener el formato: style="propiedad:valor;propiedad:valor"
-- NUNCA cerrar comillas antes de completar el valor del style
-- Para colores, SIEMPRE usar: style="color:#valor"
-- Para bordes, usar: style="border-left:6px solid #color"
-- NO dejar style="" vacío
-- NO poner valores de color sin la propiedad "color:"`
-  }
+3. APLICACIÓN DE ESTILOS CONTEXTUAL:
+- Leyes y normas: <span style="background-color:#FFD700;color:#000000;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #DAA520">TEXTO</span>
+- Artículos y referencias: <span style="background-color:#87CEEB;color:#000080;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #4682B4">TEXTO</span>
+- Conceptos clave del ${colorScheme.blockName}: <span style="background-color:#98FB98;color:#006400;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #32CD32">TEXTO</span>
+
+4. PRESERVACIÓN SEMÁNTICA:
+- Mantén EXACTAMENTE el mismo contenido textual
+- No corrijas ortografía ni gramática
+- Preserva la estructura de párrafos original
+- Si hay enumeraciones o listas, conviértelas a <ul> o <ol>
+
+5. VALIDACIÓN TÉCNICA:
+- Sintaxis CSS: usar SOLO punto y coma (;) entre propiedades
+- Atributos HTML: usar SOLO comillas dobles (")
+- Cerrar TODOS los tags correctamente
+- NO incluir punto y coma al final del último estilo
+
+FORMATO DE SALIDA:
+Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explicaciones ni metadatos.`;
+}
 
   async enrichFeedback(originalFeedback, question, correctAnswer, provider = 'openai', topic = null) {
     if (!originalFeedback || originalFeedback.trim().length === 0) {
@@ -209,8 +189,10 @@ IMPORTANTE - SINTAXIS HTML CORRECTA:
             role: 'user',
             content: prompt
           }],
-          temperature: 0.2,
+          temperature: 0.1,
           max_tokens: 2048,
+          presence_penalty: 0.1,
+          frequency_penalty: 0.1,
         });
         
         enrichedText = response.choices[0].message.content.trim();
