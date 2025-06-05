@@ -201,7 +201,7 @@ IMPORTANTE - SINTAXIS HTML CORRECTA:
         
       } else if (provider === 'openai' && this.openai) {
         const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [{
             role: 'system',
             content: 'Eres un asistente especializado en formatear feedback educativo. SIEMPRE debes envolver el contenido en un div contenedor con el estilo especificado. Devuelve únicamente el HTML completo. USA PUNTO Y COMA (;) para separar propiedades CSS, NO comas.'
