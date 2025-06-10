@@ -1,4 +1,4 @@
-// BackExams/routes/history.route.js - VERSIÓN CORREGIDA
+// BackExams/routes/history.route.js - VERSIÓN COMPLETA
 /* eslint-disable consistent-return */
 import express from 'express';
 import fs from 'fs';
@@ -45,17 +45,32 @@ router.get('/download', async (req, res, next) => {
     
     console.log(`✅ ${questions.length} preguntas obtenidas exitosamente`);
     
+    // Manejar diferentes tipos de archivo
     if (type === 'csv') {
       await handleCsvDownload(res, questions, name, examService);
     } else if (type === 'doc') {
       const hasFeedback = feedback === 'true';
       await handleDocDownload(res, questions, name, hasFeedback, examService);
+    } else if (type === 'html') {
+      const hasFeedback = feedback === 'true';
+      await handleHtmlDownload(res, questions, name, hasFeedback, examService);
     } else {
-      return res.status(400).json({ error: 'Tipo de archivo no válido. Use "csv" o "doc"' });
+      return res.status(400).json({ error: 'Tipo de archivo no válido. Use "csv", "doc" o "html"' });
     }
     
   } catch (error) {
     console.error('❌ Error en descarga:', error);
+    next(error);
+  }
+});
+
+router.post('/delete', async (req, res, next) => {
+  try {
+    const { id } = req.body;
+    const removed = await historicService.removeRecord(id);
+    const historic = await historicService.getAllRecords();
+    res.json({ removed, historic });
+  } catch (error) {
     next(error);
   }
 });
@@ -113,23 +128,16 @@ async function handleCsvDownload(res, questions, name, examService) {
   }
 }
 
-// BackExams/routes/history.route.js
-// Corregir la función handleDocDownload para limpiar el nombre
-
+// Función para manejar descarga de DOC
 async function handleDocDownload(res, questions, name, hasFeedback, examService) {
   let filePath = null;
   
   try {
     console.log(`📄 Generando documento Word (Feedback: ${hasFeedback ? 'Sí' : 'No'})...`);
     
-    // IMPORTANTE: Limpiar el nombre del archivo
-    // Eliminar extensiones anteriores como .csv del nombre
+    // Limpiar el nombre del archivo
     let cleanName = name;
-    
-    // Eliminar extensiones conocidas del nombre
     cleanName = cleanName.replace(/\.(csv|docx?|xlsx?|pdf)$/i, '');
-    
-    // También limpiar si tiene .csv en medio del nombre
     cleanName = cleanName.replace(/\.csv/gi, '');
     
     console.log(`📝 Nombre original: "${name}"`);
@@ -192,7 +200,8 @@ async function handleDocDownload(res, questions, name, hasFeedback, examService)
     }
   }
 }
-  // Añadir después de handleDocDownload
+
+// Función para manejar descarga de HTML
 async function handleHtmlDownload(res, questions, name, hasFeedback, examService) {
   let filePath = null;
   
@@ -204,6 +213,7 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
     
     filePath = await examService.createHtmlExam(questions, hasFeedback);
     
+    // Verificar que el archivo existe y tiene contenido
     const fileStatus = await examService.checkFileStatus(filePath);
     if (!fileStatus.exists || fileStatus.size === 0) {
       throw new Error('El archivo HTML no se generó correctamente');
@@ -217,7 +227,12 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.html"`);
     res.setHeader('Content-Length', fileStatus.size);
     
-    // Stream del archivo
+    // Headers adicionales
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Crear stream y pipe al response
     const fileStream = fs.createReadStream(filePath);
     
     fileStream.on('error', (error) => {
@@ -229,9 +244,16 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
     
     fileStream.on('end', () => {
       console.log('✅ Descarga de HTML completada');
+      // Eliminar archivo después de un delay
       setTimeout(() => {
         examService.removeExam(filePath);
       }, 1000);
+    });
+    
+    // Manejo de cierre de conexión
+    res.on('close', () => {
+      console.log('🔌 Conexión cerrada por el cliente');
+      fileStream.destroy();
     });
     
     fileStream.pipe(res);
@@ -239,7 +261,7 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
   } catch (error) {
     console.error('❌ Error generando HTML:', error);
     if (filePath) {
-      examService.removeExam(filePath);
+      setTimeout(() => examService.removeExam(filePath), 1000);
     }
     if (!res.headersSent) {
       res.status(500).json({ error: 'Error generando archivo HTML' });
@@ -247,16 +269,4 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
   }
 }
 
-// En el endpoint de download, añadir:
-if (type === 'csv') {
-  await handleCsvDownload(res, questions, name, examService);
-} else if (type === 'doc') {
-  const hasFeedback = feedback === 'true';
-  await handleDocDownload(res, questions, name, hasFeedback, examService);
-} else if (type === 'html') {
-  const hasFeedback = feedback === 'true';
-  await handleHtmlDownload(res, questions, name, hasFeedback, examService);
-} else {
-  return res.status(400).json({ error: 'Tipo de archivo no válido. Use "csv", "doc" o "html"' });
-}
 export default router;
