@@ -384,9 +384,9 @@ function createDoc(children, answerKeyTable) {
   ];
   
   // Añadir tabla de respuestas al final si existe
-  if (answerKeyTable) {
+  if (answerKeyTable && hasFeedback) {
     sections.push(
-      new Paragraph({ text: '', spacing: { before: 400 } }), // Espacio antes de la tabla
+      new Paragraph({ text: '', spacing: { before: 400 } }),
       answerKeyTable
     );
   }
@@ -425,7 +425,7 @@ function createDocument(questions, hasFeedback) {
   const rows = createRows(questions, hasFeedback);
   const table = createTable(rows);
   const answerKeyTable = createAnswerKeyTable(questions);
-  const doc = createDoc(table, answerKeyTable);
+  const doc = createDoc(table, answerKeyTable, hasFeedback); 
   return doc;
 }
 

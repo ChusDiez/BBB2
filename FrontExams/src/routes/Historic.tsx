@@ -112,6 +112,22 @@ export default function Historic() {
                             DOC + feedback
                           </a>
                         </li>
+                        <li>
+                          <a
+                            className="dropdown-item"
+                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=html`}
+                          >
+                            HTML
+                          </a>
+                        </li>
+                        <li>
+                          <a
+                            className="dropdown-item"
+                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=html&feedback=true`}
+                          >
+                            HTML + feedback
+                          </a>
+                        </li>
                       </ul>
                     </div>
                     <button

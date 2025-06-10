@@ -498,7 +498,354 @@ class ExamService {
       throw new Error(`Error generando documento Word: ${error.message}`);
     }
   }
-
+  // Método para crear examen HTML
+async createHtmlExam(questions, hasFeedback = false) {
+  const path = this.createPath('html');
+  
+  try {
+    console.log(`🌐 Creando archivo HTML con ${questions.length} preguntas...`);
+    
+    // Validar preguntas
+    this.validateQuestions(questions);
+    
+    // Generar HTML con estilos mejorados para impresión
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Examen - ${new Date().toLocaleDateString('es-ES')}</title>
+  <style>
+    /* Reset y estilos base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    /* Estilos de impresión críticos */
+    @media print {
+      body {
+        padding: 0;
+        margin: 0;
+      }
+      
+      .no-print {
+        display: none !important;
+      }
+      
+      /* Evitar cortes de página dentro de preguntas */
+      .question-block {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      
+      /* Forzar nueva página después del encabezado */
+      .header-section {
+        page-break-after: always;
+      }
+      
+      /* Respuestas siempre en nueva página */
+      .answer-key {
+        page-break-before: always;
+        margin-top: 0 !important;
+      }
+    }
+    
+    /* Encabezado */
+    .header-section {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #0066cc;
+    }
+    
+    .header-section h1 {
+      color: #0066cc;
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
+    
+    .header-section .date {
+      color: #666;
+      font-size: 1.1em;
+    }
+    
+    /* Bloque de pregunta - CRÍTICO para evitar cortes */
+    .question-block {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-left: 4px solid #0066cc;
+      border-radius: 4px;
+      /* Propiedades críticas para evitar cortes en impresión */
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: block;
+      position: relative;
+    }
+    
+    .question-number {
+      font-weight: bold;
+      color: #0066cc;
+      font-size: 1.1em;
+      margin-bottom: 10px;
+    }
+    
+    .question-text {
+      margin-bottom: 15px;
+      font-weight: 500;
+    }
+    
+    .options {
+      margin-left: 20px;
+    }
+    
+    .option {
+      margin-bottom: 8px;
+      padding: 5px 0;
+    }
+    
+    .option-letter {
+      font-weight: bold;
+      color: #0066cc;
+      margin-right: 10px;
+    }
+    
+    /* Retroalimentación con estilos del sistema */
+    .feedback {
+      margin-top: 15px;
+      padding: 15px;
+      background: #fff;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .feedback-title {
+      font-weight: bold;
+      color: #0066cc;
+      margin-bottom: 10px;
+      text-decoration: underline;
+    }
+    
+    .correct-answer {
+      font-weight: bold;
+      color: #28a745;
+      margin-bottom: 10px;
+    }
+    
+    /* Contenedores por tema (copiados del sistema) */
+    .feedback-container {
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    
+    /* Estilos para elementos enriquecidos (idénticos al sistema) */
+    .feedback-container span[style*="background-color: #FFD700"] {
+      background-color: #FFD700 !important;
+      color: #000000 !important;
+      padding: 2px 6px !important;
+      border-radius: 3px !important;
+      font-weight: 700 !important;
+      border: 1px solid #DAA520 !important;
+    }
+    
+    .feedback-container span[style*="background-color: #87CEEB"] {
+      background-color: #87CEEB !important;
+      color: #000080 !important;
+      padding: 2px 6px !important;
+      border-radius: 3px !important;
+      font-weight: 700 !important;
+      border: 1px solid #4682B4 !important;
+    }
+    
+    .feedback-container span[style*="background-color: #98FB98"] {
+      background-color: #98FB98 !important;
+      color: #006400 !important;
+      padding: 2px 6px !important;
+      border-radius: 3px !important;
+      font-weight: 600 !important;
+      border: 1px solid #32CD32 !important;
+    }
+    
+    /* Tabla de respuestas */
+    .answer-key {
+      margin-top: 50px;
+      padding: 20px;
+      background: #f0f8ff;
+      border-radius: 8px;
+      border: 2px solid #0066cc;
+    }
+    
+    .answer-key h2 {
+      text-align: center;
+      color: #0066cc;
+      margin-bottom: 20px;
+    }
+    
+    .answer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+    
+    .answer-item {
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    
+    .answer-number {
+      font-weight: bold;
+    }
+    
+    .answer-letter {
+      color: #0066cc;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    /* Botón de impresión */
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 1000;
+    }
+    
+    .print-button:hover {
+      background: #0052a3;
+    }
+  </style>
+</head>
+<body>
+  <!-- Botón de impresión (no se muestra al imprimir) -->
+  <button class="print-button no-print" onclick="window.print()">
+    🖨️ Imprimir
+  </button>
+  
+  <!-- Encabezado -->
+  <div class="header-section">
+    <h1>EXAMEN DE EVALUACIÓN</h1>
+    <div class="date">Fecha: ${new Date().toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}</div>
+    <div class="total-questions">Total de preguntas: ${questions.length}</div>
+  </div>
+  
+  <!-- Preguntas -->
+  <div class="questions-container">
+    ${questions.map((q, index) => `
+      <div class="question-block">
+        <div class="question-number">Pregunta ${index + 1}</div>
+        <div class="question-text">${this.sanitizeText(q.question)}</div>
+        <div class="options">
+          <div class="option">
+            <span class="option-letter">A)</span>
+            <span class="option-text">${this.sanitizeText(q.optionA)}</span>
+          </div>
+          <div class="option">
+            <span class="option-letter">B)</span>
+            <span class="option-text">${this.sanitizeText(q.optionB)}</span>
+          </div>
+          <div class="option">
+            <span class="option-letter">C)</span>
+            <span class="option-text">${this.sanitizeText(q.optionC)}</span>
+          </div>
+        </div>
+        ${hasFeedback && q.feedback ? `
+          <div class="feedback">
+            <div class="correct-answer">Respuesta correcta: ${q.correctAnswer}</div>
+            <div class="feedback-title">Retroalimentación:</div>
+            <div class="feedback-container">
+              ${q.feedback}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `).join('')}
+  </div>
+  
+  <!-- Tabla de respuestas (solo si hay feedback) -->
+  ${hasFeedback ? `
+    <div class="answer-key">
+      <h2>RESPUESTAS CORRECTAS</h2>
+      <div class="answer-grid">
+        ${questions.map((q, index) => `
+          <div class="answer-item">
+            <span class="answer-number">${index + 1}.</span>
+            <span class="answer-letter">${q.correctAnswer}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : ''}
+  
+  <script>
+    // Script para mejorar la experiencia de impresión
+    window.addEventListener('beforeprint', function() {
+      // Verificar que ninguna pregunta se corte
+      const questions = document.querySelectorAll('.question-block');
+      questions.forEach((q, index) => {
+        const rect = q.getBoundingClientRect();
+        const pageHeight = 1123; // Altura aproximada de página A4 en px
+        const pageNumber = Math.floor(rect.top / pageHeight);
+        const nextPageStart = (pageNumber + 1) * pageHeight;
+        
+        // Si la pregunta cruza el límite de página, añadir espacio antes
+        if (rect.bottom > nextPageStart && rect.top < nextPageStart) {
+          q.style.marginTop = (nextPageStart - rect.top + 20) + 'px';
+        }
+      });
+    });
+  </script>
+</body>
+</html>`;
+    
+    // Escribir archivo
+    await fsPromise.writeFile(path, html, 'utf8');
+    
+    const stats = await fsPromise.stat(path);
+    console.log(`✅ HTML creado exitosamente: ${path} (${stats.size} bytes)`);
+    
+    return path;
+    
+  } catch (error) {
+    console.error('❌ Error creando HTML:', error);
+    
+    // Limpiar archivo parcial
+    try {
+      if (fs.existsSync(path)) {
+        await fsPromise.unlink(path);
+      }
+    } catch (cleanupError) {
+      console.error('⚠️ Error limpiando HTML parcial:', cleanupError);
+    }
+    
+    throw new Error(`Error generando archivo HTML: ${error.message}`);
+  }
+}
   // ✅ MÉTODO createCsvExam MEJORADO
   async createCsvExam(questions) {
     const path = this.createPath('csv');

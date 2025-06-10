@@ -192,5 +192,71 @@ async function handleDocDownload(res, questions, name, hasFeedback, examService)
     }
   }
 }
+  // Añadir después de handleDocDownload
+async function handleHtmlDownload(res, questions, name, hasFeedback, examService) {
+  let filePath = null;
+  
+  try {
+    console.log(`🌐 Generando archivo HTML (Feedback: ${hasFeedback ? 'Sí' : 'No'})...`);
+    
+    // Limpiar nombre
+    let cleanName = name.replace(/\.(csv|docx?|xlsx?|pdf|html?)$/i, '');
+    
+    filePath = await examService.createHtmlExam(questions, hasFeedback);
+    
+    const fileStatus = await examService.checkFileStatus(filePath);
+    if (!fileStatus.exists || fileStatus.size === 0) {
+      throw new Error('El archivo HTML no se generó correctamente');
+    }
+    
+    console.log(`✅ HTML generado: ${filePath} (${fileStatus.size} bytes)`);
+    
+    // Configurar headers para HTML
+    const safeName = encodeURIComponent(cleanName).replace(/[^\w\-_.]/g, '_');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.html"`);
+    res.setHeader('Content-Length', fileStatus.size);
+    
+    // Stream del archivo
+    const fileStream = fs.createReadStream(filePath);
+    
+    fileStream.on('error', (error) => {
+      console.error('❌ Error en stream de HTML:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error leyendo el archivo' });
+      }
+    });
+    
+    fileStream.on('end', () => {
+      console.log('✅ Descarga de HTML completada');
+      setTimeout(() => {
+        examService.removeExam(filePath);
+      }, 1000);
+    });
+    
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('❌ Error generando HTML:', error);
+    if (filePath) {
+      examService.removeExam(filePath);
+    }
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error generando archivo HTML' });
+    }
+  }
+}
 
+// En el endpoint de download, añadir:
+if (type === 'csv') {
+  await handleCsvDownload(res, questions, name, examService);
+} else if (type === 'doc') {
+  const hasFeedback = feedback === 'true';
+  await handleDocDownload(res, questions, name, hasFeedback, examService);
+} else if (type === 'html') {
+  const hasFeedback = feedback === 'true';
+  await handleHtmlDownload(res, questions, name, hasFeedback, examService);
+} else {
+  return res.status(400).json({ error: 'Tipo de archivo no válido. Use "csv", "doc" o "html"' });
+}
 export default router;
