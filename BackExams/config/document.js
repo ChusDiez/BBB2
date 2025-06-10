@@ -290,6 +290,7 @@ function createTable(rows) {
     },
   });
 }
+
 /**
  * Crea una tabla compacta con las respuestas correctas
  * @param {Array} questions - Array de preguntas
@@ -377,16 +378,18 @@ function createAnswerKeyTable(questions) {
   });
 }
 
-function createDoc(children, answerKeyTable) {
+// FUNCIÓN CORREGIDA: Añadido hasFeedback como parámetro
+function createDoc(children, answerKeyTable, hasFeedback) {
   const sections = [
     addImages(),
     children,
   ];
   
-  // Añadir tabla de respuestas al final si existe
-  if (answerKeyTable && hasFeedback) {
+  // Añadir tabla de respuestas al final si NO tiene feedback
+  // (cuando tiene feedback, las respuestas ya están incluidas con cada pregunta)
+  if (answerKeyTable && !hasFeedback) {
     sections.push(
-      new Paragraph({ text: '', spacing: { before: 400 } }),
+      new Paragraph({ text: '', spacing: { before: 400 } }), // Espacio antes de la tabla
       answerKeyTable
     );
   }
@@ -421,11 +424,12 @@ function createDoc(children, answerKeyTable) {
   });
 }
 
+// FUNCIÓN CORREGIDA: Pasando hasFeedback a createDoc
 function createDocument(questions, hasFeedback) {
   const rows = createRows(questions, hasFeedback);
   const table = createTable(rows);
   const answerKeyTable = createAnswerKeyTable(questions);
-  const doc = createDoc(table, answerKeyTable, hasFeedback);
+  const doc = createDoc(table, answerKeyTable, hasFeedback); // AQUÍ está la corrección principal
   return doc;
 }
 
