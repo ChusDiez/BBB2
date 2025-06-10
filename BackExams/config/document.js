@@ -425,7 +425,7 @@ function createDocument(questions, hasFeedback) {
   const rows = createRows(questions, hasFeedback);
   const table = createTable(rows);
   const answerKeyTable = createAnswerKeyTable(questions);
-  const doc = createDoc(table, answerKeyTable, hasFeedback); 
+  const doc = createDoc(table, answerKeyTable, hasFeedback);
   return doc;
 }
 
