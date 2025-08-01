@@ -9,8 +9,156 @@ const {
   TextRun, 
   AlignmentType,
   UnderlineType,
-  HeadingLevel
+  HeadingLevel,
+  Table,
+  TableCell,
+  TableRow,
+  WidthType,
+  ShadingType,
+  BorderStyle
 } = docx;
+
+/**
+ * Parser mejorado de estilos CSS inline a objeto JavaScript
+ * @param {string} styleString - String de estilos CSS
+ * @returns {Object} - Objeto con estilos en camelCase
+ */
+function parseInlineStyles(styleString) {
+  if (!styleString) return {};
+  
+  return Object.fromEntries(
+    styleString
+      .split(";")
+      .map(rule => rule.trim())
+      .filter(Boolean)
+      .map(rule => {
+        const [key, ...valueParts] = rule.split(":");
+        if (!key || valueParts.length === 0) return null;
+        
+        // Convertir kebab-case a camelCase
+        const camelKey = key.trim().replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+        const value = valueParts.join(":").trim();
+        
+        return [camelKey, value];
+      })
+      .filter(Boolean)
+  );
+}
+
+/**
+ * Convierte color hex a formato Word (mayúsculas, sin #)
+ * @param {string} color - Color en cualquier formato
+ * @returns {string} - Color en formato RRGGBB mayúsculas
+ */
+function normalizeHexColorForWord(color) {
+  if (!color) return "000000";
+  
+  // Extraer hex del color
+  const hexMatch = color.match(/#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})/);
+  if (!hexMatch) return "000000";
+  
+  let hex = hexMatch[1].toUpperCase();
+  
+  // Expandir shorthand (ej: F0A -> FF00AA)
+  if (hex.length === 3) {
+    hex = hex.split("").map(c => c + c).join("");
+  }
+  
+  return hex;
+}
+
+/**
+ * Parsea border-left CSS a configuración Word
+ * @param {string} borderLeft - Valor CSS de border-left
+ * @returns {Object|null} - Configuración de borde para Word
+ */
+function parseBorderLeftForWord(borderLeft) {
+  if (!borderLeft) return null;
+  
+  // Formato esperado: "6px solid #DC3545"
+  const match = borderLeft.match(/(\d+)px\s+(solid|dotted|dashed)\s+(#?[a-fA-F0-9]{6}|#?[a-fA-F0-9]{3})/);
+  if (!match) return null;
+  
+  const widthPx = parseInt(match[1], 10);
+  const style = match[2];
+  const color = normalizeHexColorForWord(match[3]);
+  
+  // Convertir px a eighths of a point (Word units)
+  // 1px ≈ 0.75pt, 1pt = 8 eighths → 1px ≈ 6 eighths
+  const size = Math.max(1, Math.round(widthPx * 0.75 * 8));
+  
+  // Mapear estilos CSS a BorderStyle
+  const borderStyleMap = {
+    'solid': BorderStyle.SINGLE,
+    'dotted': BorderStyle.DOTTED,
+    'dashed': BorderStyle.DASHED
+  };
+  
+  return { 
+    size, 
+    color, 
+    style: borderStyleMap[style] || BorderStyle.SINGLE 
+  };
+}
+
+/**
+ * Detecta si un contenedor necesita tabla especial (tiene fondo o borde)
+ * @param {Object} styles - Estilos extraídos del elemento
+ * @returns {boolean} - True si necesita tabla especial
+ */
+function needsSpecialContainer(styles) {
+  return styles.backgroundColor || styles.borderLeft;
+}
+
+/**
+ * Crea tabla 1x1 para contenedores especiales
+ * @param {Array} content - Contenido a envolver
+ * @param {Object} styles - Estilos del contenedor
+ * @returns {Table} - Tabla con estilos aplicados
+ */
+function createSpecialContainerTable(content, styles) {
+  // Configurar shading (fondo)
+  const cellShading = styles.backgroundColor ? {
+    type: ShadingType.SOLID,
+    color: "auto",
+    fill: normalizeHexColorForWord(styles.backgroundColor)
+  } : undefined;
+  
+  // Configurar borde izquierdo
+  const borderConfig = parseBorderLeftForWord(styles.borderLeft);
+  const cellBorders = borderConfig ? {
+    left: {
+      style: borderConfig.style,
+      size: borderConfig.size,
+      color: borderConfig.color
+    }
+  } : undefined;
+  
+  // Crear celda con configuración completa
+  const cell = new TableCell({
+    children: content,
+    shading: cellShading,
+    borders: cellBorders,
+    margins: {
+      // Aplicar padding de 10pt en todos los lados
+      top: 141, // 10pt en twips (1pt = 14.1 twips)
+      bottom: 141,
+      left: 141,
+      right: 141
+    }
+  });
+  
+  // Crear fila con cantSplit para evitar saltos de página
+  const row = new TableRow({
+    children: [cell],
+    cantSplit: true // Evitar que Word parta esta fila entre páginas
+  });
+  
+  return new Table({
+    rows: [row],
+    width: { size: 100, type: WidthType.PERCENTAGE }
+  });
+}
 
 /**
  * Convierte HTML a elementos docx usando un parser DOM real
@@ -201,9 +349,36 @@ function processParagraph(node, elements, context) {
  * Procesa un contenedor con estilos (divs temáticos)
  */
 function processContainer(node, elements, style) {
-  // Simplemente procesar el contenido interno
-  // Los estilos del contenedor no se aplican directamente en Word
-  processNodes(node.children, elements, {});
+  // Verificar si necesita tabla especial para estilos
+  if (needsSpecialContainer(style)) {
+    // Procesar contenido interno en array temporal
+    const containerContent = [];
+    processNodes(node.children, containerContent, {});
+    
+    // Si hay contenido, crear tabla especial
+    if (containerContent.length > 0) {
+      // Aplicar keepLines a párrafos largos dentro del contenedor
+      const enhancedContent = containerContent.map(element => {
+        if (element instanceof Paragraph) {
+          // Clonar párrafo con keepLines para mantener cohesión
+          const originalChildren = element.children;
+          return new Paragraph({
+            children: originalChildren,
+            keepLines: true, // Evitar que Word parta párrafos largos
+            alignment: element.alignment || AlignmentType.JUSTIFIED,
+            spacing: element.spacing || { after: 200 }
+          });
+        }
+        return element;
+      });
+      
+      const specialTable = createSpecialContainerTable(enhancedContent, style);
+      elements.push(specialTable);
+    }
+  } else {
+    // Contenedor sin estilos especiales, procesar normalmente
+    processNodes(node.children, elements, {});
+  }
 }
 
 /**
@@ -395,7 +570,7 @@ function processInlineElement(node, context) {
 }
 
 /**
- * Extrae estilos de un elemento
+ * Extrae estilos de un elemento usando el parser mejorado
  */
 function extractStyles(node) {
   const styles = {};
@@ -404,63 +579,67 @@ function extractStyles(node) {
     return styles;
   }
   
-  const styleString = node.attribs.style;
-  const rules = styleString.split(';').filter(r => r.trim());
+  // Usar el parser mejorado de estilos
+  const parsedStyles = parseInlineStyles(node.attribs.style);
   
-  for (const rule of rules) {
-    const colonIndex = rule.indexOf(':');
-    if (colonIndex > 0) {
-      const prop = rule.substring(0, colonIndex).trim();
-      const value = rule.substring(colonIndex + 1).trim();
-      
-      // Mapear propiedades CSS a opciones de docx
-      switch (prop) {
-        case 'color':
-          const color = normalizeColor(value);
-          if (color) styles.color = color;
-          break;
-          
-        case 'background-color':
-          const highlight = getHighlightColor(value);
-          if (highlight) styles.highlight = highlight;
-          break;
-          
-        case 'font-weight':
-          if (value === 'bold' || parseInt(value) >= 600) {
-            styles.bold = true;
-          }
-          break;
-          
-        case 'font-style':
-          if (value === 'italic') styles.italics = true;
-          break;
-          
-        case 'text-decoration':
-          if (value.includes('underline')) {
-            styles.underline = { type: UnderlineType.SINGLE };
-          }
-          if (value.includes('line-through')) {
-            styles.strike = true;
-          }
-          break;
-          
-        case 'font-size':
-          // Convertir a puntos si es necesario
-          const size = parseFontSize(value);
-          if (size) styles.size = size;
-          break;
-          
-        case 'font-family':
-          styles.font = value.replace(/['"]/g, '').split(',')[0].trim();
-          break;
-          
-        // Guardar propiedades especiales
-        case 'border-left':
-          styles['border-left'] = value;
-          break;
-      }
+  // Mapear propiedades CSS a opciones de docx
+  Object.entries(parsedStyles).forEach(([prop, value]) => {
+    switch (prop) {
+      case 'color':
+        const color = normalizeColor(value);
+        if (color) styles.color = color;
+        break;
+        
+      case 'backgroundColor':
+        // MEJORADO: Usar shading en lugar de highlight cuando sea posible
+        styles.backgroundColor = value; // Guardar valor original
+        const highlight = getHighlightColor(value);
+        if (highlight) styles.highlight = highlight;
+        break;
+        
+      case 'fontWeight':
+        if (value === 'bold' || parseInt(value) >= 600) {
+          styles.bold = true;
+        }
+        break;
+        
+      case 'fontStyle':
+        if (value === 'italic') styles.italics = true;
+        break;
+        
+      case 'textDecoration':
+        if (value.includes('underline')) {
+          styles.underline = { type: UnderlineType.SINGLE };
+        }
+        if (value.includes('line-through')) {
+          styles.strike = true;
+        }
+        break;
+        
+      case 'fontSize':
+        // Convertir a puntos si es necesario
+        const size = parseFontSize(value);
+        if (size) styles.size = size;
+        break;
+        
+      case 'fontFamily':
+        styles.font = value.replace(/['"]/g, '').split(',')[0].trim();
+        break;
+        
+      // MEJORADO: Guardar propiedades especiales para Word
+      case 'borderLeft':
+        styles.borderLeft = value;
+        break;
+        
+      case 'padding':
+        styles.padding = value;
+        break;
+        
+      case 'margin':
+        styles.margin = value;
+        break;
     }
-  }
+  });
   
   return styles;
 }
@@ -505,135 +684,87 @@ function createParagraph(runs, style = {}) {
 }
 
 /**
- * Normaliza colores CSS a formato Word
+ * Normaliza colores CSS a formato Word (usa la función mejorada)
  */
 function normalizeColor(color) {
   if (!color) return null;
   
-  color = color.trim().toLowerCase();
-  
-  // Remover # si existe
-  if (color.startsWith('#')) {
-    color = color.substring(1);
-  }
+  const normalized = color.trim().toLowerCase();
   
   // Colores nombrados comunes
   const namedColors = {
-    'black': '000000',
-    'white': 'FFFFFF',
-    'red': 'FF0000',
-    'green': '008000',
-    'blue': '0000FF',
-    'yellow': 'FFFF00',
-    'orange': 'FFA500',
-    'purple': '800080',
-    'gray': '808080',
-    'grey': '808080',
-    'silver': 'C0C0C0',
-    'maroon': '800000',
-    'navy': '000080',
-    'olive': '808000',
-    'teal': '008080',
-    'aqua': '00FFFF',
-    'fuchsia': 'FF00FF',
-    'lime': '00FF00'
+    'black': '#000000',
+    'white': '#FFFFFF',
+    'red': '#FF0000',
+    'green': '#008000',
+    'blue': '#0000FF',
+    'yellow': '#FFFF00',
+    'orange': '#FFA500',
+    'purple': '#800080',
+    'gray': '#808080',
+    'grey': '#808080',
+    'silver': '#C0C0C0',
+    'maroon': '#800000',
+    'navy': '#000080',
+    'olive': '#808000',
+    'teal': '#008080',
+    'aqua': '#00FFFF',
+    'fuchsia': '#FF00FF',
+    'lime': '#00FF00'
   };
   
-  if (namedColors[color]) {
-    return namedColors[color];
-  }
+  // Convertir color nombrado a hex
+  let colorToProcess = namedColors[normalized] || color;
   
   // RGB/RGBA
-  const rgbMatch = color.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  const rgbMatch = normalized.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (rgbMatch) {
     const [, r, g, b] = rgbMatch;
-    return [r, g, b].map(n => 
+    const hex = [r, g, b].map(n => 
       parseInt(n).toString(16).padStart(2, '0')
     ).join('').toUpperCase();
+    colorToProcess = '#' + hex;
   }
   
-  // Hex color
-  if (/^[0-9a-f]{3}$/i.test(color)) {
-    // Expandir hex corto
-    return color.split('').map(c => c + c).join('').toUpperCase();
-  }
-  
-  if (/^[0-9a-f]{6}$/i.test(color)) {
-    return color.toUpperCase();
-  }
-  
-  // Color por defecto si no se puede parsear
-  return null;
+  // Usar la función mejorada para normalizar
+  const result = normalizeHexColorForWord(colorToProcess);
+  return result !== "000000" ? result : null;
 }
 
 /**
- * Mapea colores de fondo a highlights de Word
+ * Mapea colores de fondo a highlights de Word (RESTRINGIDO a colores estándar)
+ * NOTA: Solo usar highlight para colores específicos que Word maneja bien
  */
 function getHighlightColor(bgColor) {
   if (!bgColor) return null;
   
   const normalized = bgColor.toLowerCase().trim();
   
-  // Mapa de colores de fondo a highlights de Word
-  const highlightMap = {
-    // Amarillos
+  // RESTRINGIDO: Solo mapear colores que Word maneja perfectamente como highlight
+  const restrictedHighlightMap = {
+    // Solo amarillos claros (highlight amarillo funciona bien)
     '#ffd700': 'yellow',
     '#ffff00': 'yellow',
-    '#ffeb3b': 'yellow',
-    '#fff3cd': 'yellow',
     '#ffffcc': 'yellow',
     'yellow': 'yellow',
-    'gold': 'yellow',
     
-    // Azules
-    '#87ceeb': 'cyan',
-    '#0073e6': 'blue',
-    '#e8f4fd': 'cyan',
+    // Solo azules muy claros (cyan funciona bien)
     '#f0f8ff': 'cyan',
+    '#e8f4fd': 'cyan',
     'lightblue': 'cyan',
-    'skyblue': 'cyan',
     
-    // Verdes
-    '#98fb98': 'green',
-    '#90ee90': 'green',
-    '#28a745': 'green',
-    '#00ff00': 'green',
-    'lightgreen': 'green',
-    
-    // Rojos/Rosas
-    '#ff6347': 'red',
-    '#ffc0cb': 'magenta',
-    '#ffe4e1': 'magenta',
-    '#dc3545': 'red',
-    'pink': 'magenta',
-    'tomato': 'red',
-    
-    // Grises
-    '#f5f5f5': 'lightGray',
-    '#e9ecef': 'lightGray',
-    '#d3d3d3': 'lightGray',
-    'lightgray': 'lightGray',
-    'lightgrey': 'lightGray',
-    
-    // Naranjas
-    '#ffa500': 'yellow',
-    '#ff8c00': 'yellow',
-    'orange': 'yellow'
+    // Solo verdes muy claros
+    '#f0fff0': 'green',
+    'lightgreen': 'green'
   };
   
-  // Intentar encontrar coincidencia exacta
-  if (highlightMap[normalized]) {
-    return highlightMap[normalized];
+  // Intentar encontrar coincidencia exacta SOLO para colores seguros
+  if (restrictedHighlightMap[normalized]) {
+    return restrictedHighlightMap[normalized];
   }
   
-  // Si empieza con #, intentar sin #
-  if (normalized.startsWith('#')) {
-    const withoutHash = normalized.substring(1);
-    if (highlightMap['#' + withoutHash]) {
-      return highlightMap['#' + withoutHash];
-    }
-  }
-  
+  // NO usar highlight para colores arbitrarios
+  // En su lugar, se usará shading en las tablas especiales
   return null;
 }
 

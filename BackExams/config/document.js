@@ -47,6 +47,7 @@ function createNumberedRow(property = '', level) {
             },
             ...level === 0 && {
               heading: HeadingLevel.HEADING_6,
+              keepNext: true, // Mantener junto al contenido que sigue
             },
             alignment: AlignmentType.JUSTIFIED,
             indent: {
@@ -60,6 +61,7 @@ function createNumberedRow(property = '', level) {
         },
       }),
     ],
+    cantSplit: true, // Evitar que Word parta esta fila entre páginas
   });
 }
 
@@ -82,6 +84,7 @@ function createCorrectAnswerRow(correctAnswer) {
         ],
       }),
     ],
+    cantSplit: true, // Evitar que Word parta esta fila entre páginas
   });
 }
 
@@ -110,6 +113,7 @@ function createFeedbackRow(feedback) {
           children: [new Paragraph({ text: 'Retroalimentación: Sin información adicional' })],
         }),
       ],
+      cantSplit: true, // Evitar que Word parta esta fila entre páginas
     });
   }
 
@@ -149,6 +153,7 @@ function createFeedbackRow(feedback) {
             ],
           }),
         ],
+        cantSplit: true, // Evitar que Word parta esta fila entre páginas
       });
     }
 
@@ -177,6 +182,7 @@ function createFeedbackRow(feedback) {
           },
         }),
       ],
+      cantSplit: true, // Evitar que Word parta esta fila entre páginas
     });
   } else {
     // Texto plano - comportamiento original
@@ -193,6 +199,7 @@ function createFeedbackRow(feedback) {
           ],
         }),
       ],
+      cantSplit: true, // Evitar que Word parta esta fila entre páginas
     });
   }
 }
@@ -208,6 +215,7 @@ function createBaseRow(property) {
         ],
       }),
     ],
+    cantSplit: true, // Evitar que Word parta esta fila entre páginas
   });
 }
 
@@ -218,6 +226,7 @@ function createEmptyRow() {
         children: [new Paragraph({})],
       }),
     ],
+    cantSplit: true, // Evitar que Word parta esta fila entre páginas
   });
 }
 
@@ -313,7 +322,8 @@ function createAnswerKeyTable(questions) {
           fill: 'E8F4FD'
         }
       })
-    ]
+    ],
+    cantSplit: true, // Evitar que Word parta esta fila entre páginas
   });
   rows.push(headerRow);
   
@@ -358,7 +368,10 @@ function createAnswerKeyTable(questions) {
       }
     }
     
-    rows.push(new TableRow({ children: cells }));
+    rows.push(new TableRow({ 
+      children: cells,
+      cantSplit: true // Evitar que Word parta esta fila entre páginas
+    }));
   }
   
   return new Table({
