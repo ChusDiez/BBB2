@@ -1,4 +1,4 @@
-// BackExams/services/aiEnrichment.services.js - VERSIÓN COMPLETA CON CONTENEDORES
+// BackExams/services/aiEnrichment.services.js
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
@@ -26,6 +26,7 @@ class AIEnrichmentService {
 
   /**
    * Determina el esquema de colores según el tema
+   * OPTIMIZADO PARA IMPRESIÓN EN PDF
    * @param {number} topic - Número del tema
    * @returns {Object} - Colores de fondo y borde
    */
@@ -33,36 +34,39 @@ class AIEnrichmentService {
     const topicNum = parseInt(topic);
     
     if (topicNum >= 1 && topicNum <= 26) {
-      // Temas Jurídicos - Rojo
+      // Temas Jurídicos - Rojo (optimizado para impresión)
       return {
-        backgroundColor: '#fff5f5',  // Rojo muy claro
-        borderColor: '#dc3545',      // Rojo
+        backgroundColor: '#ffe6e6',  // Rojo más visible en PDF
+        borderColor: '#cc0000',      // Rojo oscuro para mejor contraste
         blockName: 'JURÍDICAS'
       };
     } else if (topicNum >= 27 && topicNum <= 37) {
-      // Temas Sociales - Azul
+      // Temas Sociales - Azul (optimizado para impresión)
       return {
-        backgroundColor: '#f0f8ff',  // Azul muy claro
-        borderColor: '#0073e6',      // Azul
+        backgroundColor: '#e6f2ff',  // Azul más visible en PDF
+        borderColor: '#0052cc',      // Azul oscuro para mejor contraste
         blockName: 'CIENCIAS SOCIALES'
       };
     } else if (topicNum >= 38 && topicNum <= 45) {
-      // Temas Técnico-Científicos - Verde
+      // Temas Técnico-Científicos - Verde (optimizado para impresión)
       return {
-        backgroundColor: '#f0fff4',  // Verde muy claro
-        borderColor: '#28a745',      // Verde
+        backgroundColor: '#e6ffe6',  // Verde más visible en PDF
+        borderColor: '#008000',      // Verde oscuro para mejor contraste
         blockName: 'TÉCNICO-CIENTÍFICAS'
       };
     } else {
       // Por defecto - Gris
       return {
-        backgroundColor: '#f8f9fa',
-        borderColor: '#6c757d',
+        backgroundColor: '#f0f0f0',  // Gris más oscuro
+        borderColor: '#333333',      // Gris muy oscuro
         blockName: 'GENERAL'
       };
     }
   }
 
+  /**
+   * Limpia bloques de código markdown de la respuesta
+   */
   cleanMarkdownCodeBlocks(text) {
     let cleanedText = text;
     const codeBlockPattern = /^```(?:html)?\s*\n?([\s\S]*?)\n?```$/;
@@ -78,70 +82,60 @@ class AIEnrichmentService {
     return cleanedText.trim();
   }
 
+  /**
+   * Corrige errores comunes de sintaxis HTML/CSS
+   */
   fixHtmlSyntax(html) {
-    if (!html) return html;
-    
-    let fixed = html;
-    
-    // Corregir comas por punto y coma en estilos
-    // Buscar todos los atributos style y corregirlos
-    fixed = fixed.replace(/style\s*=\s*['"]([^'"]+)['"]/gi, (match, styleContent) => {
-      // Dentro del style, reemplazar comas por punto y coma
-      let correctedStyle = styleContent
-        .replace(/,\s*(?=[\w-]+:)/g, '; ') // Coma seguida de propiedad CSS
-        .replace(/,\s*$/g, '') // Eliminar coma al final
-        .replace(/,\s*'/g, "'") // Eliminar coma antes de comilla de cierre
-        .replace(/;\s*;/g, ';') // Eliminar punto y coma duplicados
-        .trim();
-      
-      // Asegurar que termine sin punto y coma extra
-      if (correctedStyle.endsWith(';')) {
-        correctedStyle = correctedStyle.slice(0, -1);
-      }
-      
-      return `style="${correctedStyle}"`;
+    // Corregir uso de comas en lugar de punto y coma en CSS
+    html = html.replace(/style="([^"]+)"/g, (match, styles) => {
+      const fixedStyles = styles.replace(/,(?=\s*[a-zA-Z-]+:)/g, ';');
+      return `style="${fixedStyles}"`;
     });
     
-    // Cambiar comillas simples por dobles en atributos
-    fixed = fixed.replace(/(\w+)\s*=\s*'([^']*)'/g, '$1="$2"');
+    // Asegurar que no haya punto y coma al final del último estilo
+    html = html.replace(/;\s*"/g, '"');
     
-    return fixed;
+    return html;
   }
 
-buildPrompt(originalFeedback, question, correctAnswer, colorScheme) {
-  return `Eres un asistente experto en educación y derecho español que formatea retroalimentación de exámenes con precisión académica.
+  /**
+   * Construye el prompt para el enriquecimiento
+   */
+  buildPrompt(originalFeedback, question, correctAnswer, colorScheme) {
+    return `Eres un experto en educación especializado en formatear retroalimentación para exámenes. Tu tarea es enriquecer el siguiente feedback con HTML estructurado y optimizado para documentos Word que serán convertidos a PDF.
 
 CONTEXTO DEL EXAMEN:
-- Pregunta: ${question}
-- Respuesta correcta: ${correctAnswer}
-- Bloque temático: ${colorScheme.blockName}
+- PREGUNTA: ${question}
+- RESPUESTA CORRECTA: ${correctAnswer}
+- BLOQUE TEMÁTICO: ${colorScheme.blockName}
+- FEEDBACK A ENRIQUECER: ${originalFeedback}
 
-TEXTO A ENRIQUECER:
-${originalFeedback}
+INSTRUCCIONES CRÍTICAS:
 
-INSTRUCCIONES DE FORMATO:
-
-1. CONTENEDOR OBLIGATORIO:
+1. ESTRUCTURA OBLIGATORIA:
+Debes SIEMPRE envolver TODO el contenido en un div contenedor con estos estilos EXACTOS:
 <div style="background-color:${colorScheme.backgroundColor};border-left:6px solid ${colorScheme.borderColor};font-family:Arial,sans-serif;margin:20px 0;padding:15px;">
+  [CONTENIDO ENRIQUECIDO AQUÍ]
+</div>
 
-2. IDENTIFICACIÓN INTELIGENTE DE ELEMENTOS:
-Analiza el contexto para identificar correctamente:
-- Referencias legales completas (incluyendo variantes como "L.O.", "RD", "Real Decreto-ley")
-- Artículos con sus apartados (ej: "art. 36.2.a)", "artículo 4 bis")
-- Conceptos jurídicos y técnicos relevantes al tema
-- Fechas importantes y plazos legales
-- Porcentajes y datos estadísticos
-
-3. APLICACIÓN DE ESTILOS CONTEXTUAL:
-- Leyes y normas: <span style="background-color:#FFD700;color:#000000;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #DAA520">TEXTO</span>
-- Artículos y referencias: <span style="background-color:#87CEEB;color:#000080;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #4682B4">TEXTO</span>
-- Conceptos clave del ${colorScheme.blockName}: <span style="background-color:#98FB98;color:#006400;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #32CD32">TEXTO</span>
-
-4. PRESERVACIÓN SEMÁNTICA:
-- Mantén EXACTAMENTE el mismo contenido textual
+2. PRESERVACIÓN DEL CONTENIDO:
+- NO cambies, añadas o elimines NINGUNA palabra del texto original
+- Mantén EXACTAMENTE la misma redacción
+- Preserva números, fechas y referencias tal como están
 - No corrijas ortografía ni gramática
-- Preserva la estructura de párrafos original
-- Si hay enumeraciones o listas, conviértelas a <ul> o <ol>
+
+3. APLICACIÓN DE ESTILOS CONTEXTUAL OPTIMIZADOS PARA IMPRESIÓN:
+- Leyes y normas: <span style="background-color:#FFD700;color:#000000;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #B8860B">TEXTO</span>
+- Artículos y referencias: <span style="background-color:#87CEEB;color:#00008B;padding:2px 6px;border-radius:3px;font-weight:700;border:1px solid #4682B4">TEXTO</span>
+- Conceptos clave del ${colorScheme.blockName}: <span style="background-color:#90EE90;color:#006400;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #228B22">TEXTO</span>
+- Definiciones importantes: <span style="background-color:#DDA0DD;color:#4B0082;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #8B008B">TEXTO</span>
+- Fechas y plazos: <span style="background-color:#FFB6C1;color:#8B0000;padding:2px 6px;border-radius:3px;font-weight:600;border:1px solid #DC143C">TEXTO</span>
+
+4. ELEMENTOS ESTRUCTURALES:
+- Usa <strong> para términos muy importantes
+- Usa <em> para énfasis suave
+- Si hay enumeraciones, conviértelas a <ul> o <ol> con margin-left:20px
+- Separa párrafos con <p> tags
 
 5. VALIDACIÓN TÉCNICA:
 - Sintaxis CSS: usar SOLO punto y coma (;) entre propiedades
@@ -151,8 +145,11 @@ Analiza el contexto para identificar correctamente:
 
 FORMATO DE SALIDA:
 Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explicaciones ni metadatos.`;
-}
+  }
 
+  /**
+   * Enriquece un feedback individual
+   */
   async enrichFeedback(originalFeedback, question, correctAnswer, provider = 'openai', topic = null) {
     if (!originalFeedback || originalFeedback.trim().length === 0) {
       return originalFeedback;
@@ -168,7 +165,7 @@ Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explica
       
       if (provider === 'anthropic' && this.anthropic) {
         const response = await this.anthropic.messages.create({
-          model: 'claude-3-sonnet-20240229',
+          model: 'claude-3-5-sonnet-20241022', // Claude Sonnet 4
           max_tokens: 2048,
           temperature: 0.2,
           messages: [{
@@ -184,7 +181,7 @@ Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explica
           model: 'gpt-4o',
           messages: [{
             role: 'system',
-            content: 'Eres un asistente especializado en formatear feedback educativo. SIEMPRE debes envolver el contenido en un div contenedor con el estilo especificado. Devuelve únicamente el HTML completo. USA PUNTO Y COMA (;) para separar propiedades CSS, NO comas.'
+            content: 'Eres un asistente especializado en formatear feedback educativo para documentos que serán impresos. SIEMPRE debes envolver el contenido en un div contenedor con el estilo especificado. Devuelve únicamente el HTML completo. USA PUNTO Y COMA (;) para separar propiedades CSS, NO comas. Los colores deben ser visibles al imprimir.'
           }, {
             role: 'user',
             content: prompt
@@ -226,6 +223,9 @@ ${enrichedText}
     }
   }
 
+  /**
+   * Enriquece múltiples feedbacks en lote
+   */
   async enrichMultipleFeedbacks(questions, provider = 'openai') {
     const enrichmentPromises = questions.map(async (q) => {
       if (!q.feedback || q.feedback.trim().length === 0) {
@@ -277,6 +277,9 @@ ${enrichedText}
     return results;
   }
 
+  /**
+   * Obtiene los proveedores disponibles
+   */
   getAvailableProviders() {
     return {
       openai: !!this.openai,
