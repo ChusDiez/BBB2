@@ -10,6 +10,7 @@ const {
   Document,
   HeadingLevel,
   ImageRun,
+  PageBreak,
   Paragraph,
   Table,
   TableCell,
@@ -393,18 +394,47 @@ function createAnswerKeyTable(questions) {
 
 // FUNCIÓN CORREGIDA: Añadido hasFeedback como parámetro
 function createDoc(children, answerKeyTable, hasFeedback) {
-  const sections = [
+  const mainSectionChildren = [
     addImages(),
     children,
   ];
   
-  // Añadir tabla de respuestas al final si NO tiene feedback
-  // (cuando tiene feedback, las respuestas ya están incluidas con cada pregunta)
-  if (answerKeyTable && !hasFeedback) {
-    sections.push(
-      new Paragraph({ text: '', spacing: { before: 400 } }), // Espacio antes de la tabla
-      answerKeyTable
-    );
+  const documentSections = [];
+  
+  if (hasFeedback) {
+    // Cuando hay feedback, crear una sección principal con las preguntas
+    documentSections.push({
+      children: mainSectionChildren,
+    });
+    
+    // Y una sección separada (nueva página) solo para la tabla de respuestas
+    if (answerKeyTable) {
+      documentSections.push({
+        children: [
+          new Paragraph({ 
+            text: 'HOJA DE RESPUESTAS', 
+            heading: HeadingLevel.HEADING_1,
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 }
+          }),
+          answerKeyTable
+        ],
+        properties: {
+          page: {
+            pageNumbers: {
+              start: 1,
+              formatType: 'decimal',
+            },
+          },
+        },
+      });
+    }
+  } else {
+    // Cuando NO hay feedback, NO incluir tabla de respuestas
+    // (es un examen para estudiantes, no deben ver las respuestas)
+    documentSections.push({
+      children: mainSectionChildren,
+    });
   }
   
   return new Document({
@@ -415,9 +445,7 @@ function createDoc(children, answerKeyTable, hasFeedback) {
         numberingConfig,
       ],
     },
-    sections: [{
-      children: sections,
-    }],
+    sections: documentSections,
     styles: {
       default: {
         heading6: {
