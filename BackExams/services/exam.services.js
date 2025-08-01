@@ -26,7 +26,7 @@ class ExamService {
   }
 
   // ✅ MÉTODO MEJORADO PARA LIMPIAR Y NORMALIZAR TEXTO PLANO
-  sanitizeText(text) {
+  sanitizeText(text, preserveLineBreaks = false) {
     if (!text) return '';
     
     // Convertir a string si no lo es
@@ -65,9 +65,18 @@ class ExamService {
     // 4. Eliminar cualquier tag HTML residual (para campos de texto plano)
     text = text.replace(/<[^>]*>/g, '');
     
-    // 5. Normalizar saltos de línea a espacios
-    text = text.replace(/\r\n/g, ' ');
-    text = text.replace(/[\r\n]/g, ' ');
+    // 5. CAMBIO IMPORTANTE: Manejo condicional de saltos de línea
+    if (preserveLineBreaks) {
+      // Para feedback, preservar saltos de línea pero normalizarlos
+      text = text.replace(/\r\n/g, '\n');
+      text = text.replace(/\r/g, '\n');
+      // Limitar saltos de línea consecutivos a máximo 2
+      text = text.replace(/\n{3,}/g, '\n\n');
+    } else {
+      // Para otros campos, convertir saltos de línea a espacios
+      text = text.replace(/\r\n/g, ' ');
+      text = text.replace(/[\r\n]/g, ' ');
+    }
     
     // 6. Normalizar espacios múltiples
     text = text.replace(/\s+/g, ' ');
@@ -175,29 +184,9 @@ class ExamService {
     });
     
     // 2. Corregir atributos con comillas no cerradas
-    fixed = fixed.replace(/<(\w+)([^>]*)>/g, (match, tagName, attributes) => {
-      if (!attributes) return match;
-      
-      let fixedAttrs = attributes;
-      
-      // Corregir style
-      fixedAttrs = fixedAttrs.replace(/style\s*=\s*"([^"]*?)(?=\s|>|$)/g, (m, styleContent) => {
-        if (!m.endsWith('"')) {
-          return `style="${styleContent}"`;
-        }
-        return m;
-      });
-      
-      // Corregir otros atributos
-      fixedAttrs = fixedAttrs.replace(/(\w+)\s*=\s*["']([^"']*?)(?=\s|>|$)/g, (m, attr, value) => {
-        if (!m.endsWith('"') && !m.endsWith("'")) {
-          return `${attr}="${value}"`;
-        }
-        return m;
-      });
-      
-      return `<${tagName}${fixedAttrs}>`;
-    });
+    // COMENTADO: Esta sección estaba malformando HTML bien formado
+    // El HTML de la base de datos ya está correctamente formateado
+    // fixed = fixed.replace(/..../g, ...)
     
     // 3. Escapar < y > que no son parte de tags
     fixed = fixed.replace(/(<)(?![a-zA-Z\/!])/g, '&lt;');
@@ -354,15 +343,18 @@ class ExamService {
       const cleanedQuestions = questions.map((q, index) => {
         try {
           const cleaned = {
-            ...q,
-            // Campos de texto plano - usar sanitización completa
-            question: this.sanitizeText(q.question),
-            optionA: this.sanitizeText(q.optionA),
-            optionB: this.sanitizeText(q.optionB),
-            optionC: this.sanitizeText(q.optionC),
+            topic: q.topic,
+            question: this.sanitizeText(q.question), // Sin preservar saltos
+            optionA: this.sanitizeText(q.optionA),   // Sin preservar saltos
+            optionB: this.sanitizeText(q.optionB),   // Sin preservar saltos
+            optionC: this.sanitizeText(q.optionC),   // Sin preservar saltos
             correctAnswer: q.correctAnswer,
-            // Feedback HTML - usar limpieza especial para preservar formato
-            feedback: q.feedback ? this.cleanHtmlForWord(q.feedback) : null
+            // IMPORTANTE: Preservar saltos de línea en feedback
+            feedback: hasFeedback && q.feedback ? 
+              (q.feedback.includes('<') ? 
+                this.cleanHtmlForWord(q.feedback) : 
+                this.sanitizeText(q.feedback, true) // TRUE para preservar saltos
+              ) : null
           };
           
           // Validación adicional del feedback

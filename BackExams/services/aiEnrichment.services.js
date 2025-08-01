@@ -227,14 +227,28 @@ ${enrichedText}
    * Enriquece múltiples feedbacks en lote
    */
   async enrichMultipleFeedbacks(questions, provider = 'openai') {
-    const enrichmentPromises = questions.map(async (q) => {
+    const results = [];
+    let successCount = 0;
+    let errorCount = 0;
+    let skipCount = 0;
+    
+    console.log(`\n🔄 Procesando ${questions.length} feedbacks con ${provider}...\n`);
+    
+    // Procesar secuencialmente para evitar rate limits
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const progress = `[${i + 1}/${questions.length}]`;
+      
       if (!q.feedback || q.feedback.trim().length === 0) {
-        return {
+        skipCount++;
+        results.push({
           id: q.id,
           enrichedFeedback: q.feedback,
           status: 'skipped',
           reason: 'No hay feedback para enriquecer'
-        };
+        });
+        console.log(`⏭️  ${progress} Pregunta ${q.id}: Sin feedback`);
+        continue;
       }
 
       try {
@@ -243,37 +257,86 @@ ${enrichedText}
           q.question,
           q.correctAnswer,
           provider,
-          q.topic // Pasar el tema para determinar colores
+          q.topic
         );
         
-        return {
+        successCount++;
+        results.push({
           id: q.id,
           enrichedFeedback,
           status: 'success'
-        };
+        });
+        
+        console.log(`✅ ${progress} Pregunta ${q.id} (Tema ${q.topic}): Enriquecida`);
+        
+        // Pausa entre peticiones para evitar rate limits
+        if (provider === 'anthropic') {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo entre peticiones
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 0.5 segundos para OpenAI
+        }
+        
       } catch (error) {
-        return {
-          id: q.id,
-          enrichedFeedback: q.feedback,
-          status: 'error',
-          error: error.message
-        };
+        errorCount++;
+        
+        // Si es un error de rate limit, esperar más tiempo
+        if (error.status === 429) {
+          console.log(`⚠️  ${progress} Rate limit alcanzado. Esperando 30 segundos...`);
+          await new Promise(resolve => setTimeout(resolve, 30000)); // 30 segundos
+          
+          // Reintentar una vez
+          try {
+            const enrichedFeedback = await this.enrichFeedback(
+              q.feedback,
+              q.question,
+              q.correctAnswer,
+              provider,
+              q.topic
+            );
+            
+            successCount++;
+            errorCount--; // Corregir el conteo
+            results.push({
+              id: q.id,
+              enrichedFeedback,
+              status: 'success'
+            });
+            
+            console.log(`✅ ${progress} Pregunta ${q.id}: Enriquecida (reintento exitoso)`);
+            
+          } catch (retryError) {
+            results.push({
+              id: q.id,
+              enrichedFeedback: q.feedback,
+              status: 'error',
+              error: retryError.message
+            });
+            console.error(`❌ ${progress} Pregunta ${q.id}: Error después de reintentar - ${retryError.message}`);
+          }
+          
+        } else {
+          results.push({
+            id: q.id,
+            enrichedFeedback: q.feedback,
+            status: 'error',
+            error: error.message
+          });
+          console.error(`❌ ${progress} Pregunta ${q.id}: ${error.message}`);
+        }
       }
-    });
-
-    const batchSize = 3; // Reducido para mejor calidad
-    const results = [];
-    
-    for (let i = 0; i < enrichmentPromises.length; i += batchSize) {
-      const batch = enrichmentPromises.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch);
-      results.push(...batchResults);
       
-      if (i + batchSize < enrichmentPromises.length) {
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Pausa más larga
+      // Mostrar progreso cada 10 preguntas
+      if ((i + 1) % 10 === 0) {
+        console.log(`\n📊 Progreso: ${successCount} exitosas, ${errorCount} errores, ${skipCount} omitidas\n`);
       }
     }
-
+    
+    console.log(`\n✨ Proceso completado:`);
+    console.log(`   ✅ Exitosas: ${successCount}`);
+    console.log(`   ❌ Errores: ${errorCount}`);
+    console.log(`   ⏭️  Omitidas: ${skipCount}`);
+    console.log(`   📊 Total: ${questions.length}\n`);
+    
     return results;
   }
 
