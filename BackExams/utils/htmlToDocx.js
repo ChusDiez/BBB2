@@ -47,6 +47,7 @@ function parseInlineStyles(styleString) {
 
 /**
  * Convierte color hex a formato Word (mayúsculas, sin #)
+ * MEJORADO: Ajusta colores problemáticos para mejor compatibilidad con Word
  * @param {string} color - Color en cualquier formato
  * @returns {string} - Color en formato RRGGBB mayúsculas
  */
@@ -62,6 +63,39 @@ function normalizeHexColorForWord(color) {
   // Expandir shorthand (ej: F0A -> FF00AA)
   if (hex.length === 3) {
     hex = hex.split("").map(c => c + c).join("");
+  }
+  
+  // NUEVO: Ajustar colores problemáticos para Word
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  // Mapear colores específicos problemáticos
+  const problematicColors = {
+    'FFF5F5': 'F8E8E8', // Rosa muy claro → Rosa más visible
+    'F0F8FF': 'E0F0FF', // Azul muy claro → Azul más visible  
+    'F0FFF0': 'E8F8E8', // Verde muy claro → Verde más visible
+    'FFFAFA': 'F5F0F0', // Blanco nieve → Gris muy claro
+    'FFFFFF': 'F5F5F5', // Blanco puro → Gris muy claro
+  };
+  
+  if (problematicColors[hex]) {
+    console.log(`🎨 Color ajustado: ${hex} → ${problematicColors[hex]} para mejor contraste`);
+    return problematicColors[hex];
+  }
+  
+  // Si es muy claro pero no está en la lista, oscurecerlo ligeramente
+  if (r > 248 && g > 248 && b > 248) {
+    const adjustedR = Math.max(240, r - 15);
+    const adjustedG = Math.max(240, g - 15);
+    const adjustedB = Math.max(240, b - 15);
+    
+    const adjustedHex = [adjustedR, adjustedG, adjustedB]
+      .map(val => val.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+      
+    console.log(`🎨 Color muy claro ajustado: ${hex} → ${adjustedHex}`);
+    return adjustedHex;
   }
   
   return hex;
@@ -117,12 +151,20 @@ function needsSpecialContainer(styles) {
  * @returns {Table} - Tabla con estilos aplicados
  */
 function createSpecialContainerTable(content, styles) {
-  // Configurar shading (fondo)
-  const cellShading = styles.backgroundColor ? {
-    type: ShadingType.SOLID,
-    color: "auto",
-    fill: normalizeHexColorForWord(styles.backgroundColor)
-  } : undefined;
+  // Configurar shading (fondo) - SOLUCIÓN ALTERNATIVA sin ShadingType.SOLID
+  let cellShading = undefined;
+  
+  if (styles.backgroundColor) {
+    const normalizedColor = normalizeHexColorForWord(styles.backgroundColor);
+    console.log(`🎨 Aplicando fondo con método alternativo: ${normalizedColor}`);
+    
+    // SOLUCIÓN: Usar solo 'fill' sin 'type' para evitar problemas con ShadingType.SOLID
+    cellShading = {
+      fill: normalizedColor
+      // NO usar 'type: ShadingType.SOLID' - causa fondo negro
+      // NO usar 'color' - puede causar conflictos
+    };
+  }
   
   // Configurar borde izquierdo
   const borderConfig = parseBorderLeftForWord(styles.borderLeft);
@@ -136,7 +178,7 @@ function createSpecialContainerTable(content, styles) {
   
   // Crear celda con configuración completa
   const cell = new TableCell({
-    children: content,
+    children: content, // USAR CONTENIDO ORIGINAL sin procesamiento que lo corrompe
     shading: cellShading,
     borders: cellBorders,
     margins: {
@@ -171,8 +213,11 @@ export function htmlToDocxElements(html) {
   }
 
   try {
-    // Parsear HTML a DOM
-    const dom = parseDocument(html.trim());
+    // Normalizar saltos de línea antes del procesamiento
+    const normalizedHtml = normalizeHtmlLineBreaks(html);
+    
+    // Parsear HTML normalizado a DOM
+    const dom = parseDocument(normalizedHtml.trim());
     
     // Procesar el DOM y generar elementos docx
     const elements = [];
@@ -351,29 +396,32 @@ function processParagraph(node, elements, context) {
 function processContainer(node, elements, style) {
   // Verificar si necesita tabla especial para estilos
   if (needsSpecialContainer(style)) {
-    // Procesar contenido interno en array temporal
-    const containerContent = [];
-    processNodes(node.children, containerContent, {});
+    // NUEVA ESTRATEGIA: Si el div no tiene párrafos internos, procesar como párrafo único
+    const hasInternalParagraphs = node.children.some(child => 
+      child.type === 'tag' && ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(child.name)
+    );
     
-    // Si hay contenido, crear tabla especial
-    if (containerContent.length > 0) {
-      // Aplicar keepLines a párrafos largos dentro del contenedor
-      const enhancedContent = containerContent.map(element => {
-        if (element instanceof Paragraph) {
-          // Clonar párrafo con keepLines para mantener cohesión
-          const originalChildren = element.children;
-          return new Paragraph({
-            children: originalChildren,
-            keepLines: true, // Evitar que Word parta párrafos largos
-            alignment: element.alignment || AlignmentType.JUSTIFIED,
-            spacing: element.spacing || { after: 200 }
-          });
-        }
-        return element;
-      });
+    if (!hasInternalParagraphs) {
+      console.log('🎯 Procesando div sin párrafos internos como párrafo único');
+      // Procesar todo el contenido como UN SOLO párrafo con múltiples TextRuns
+      const runs = [];
+      collectInlineContent(node.children, runs, { inline: true });
       
-      const specialTable = createSpecialContainerTable(enhancedContent, style);
-      elements.push(specialTable);
+      if (runs.length > 0) {
+        const singleParagraph = createParagraph(runs);
+        const specialTable = createSpecialContainerTable([singleParagraph], style);
+        elements.push(specialTable);
+      }
+    } else {
+      // Procesar contenido interno en array temporal (método original para divs con párrafos)
+      const containerContent = [];
+      processNodes(node.children, containerContent, {});
+      
+      // Si hay contenido, crear tabla especial
+      if (containerContent.length > 0) {
+        const specialTable = createSpecialContainerTable(containerContent, style);
+        elements.push(specialTable);
+      }
     }
   } else {
     // Contenedor sin estilos especiales, procesar normalmente
@@ -808,6 +856,46 @@ function cleanText(text) {
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/\s+/g, ' ');
+}
+
+/**
+ * Normaliza texto dentro de párrafos y divs sin eliminar estructura
+ */
+function normalizeHtmlLineBreaks(html) {
+  if (!html) return '';
+  
+  console.log('🔧 Normalizando espacios en párrafos Y divs (casos sin <p>)');
+  
+  return html
+    // Normalizar espacios y saltos dentro de párrafos individuales
+    .replace(/<p([^>]*)>(.*?)<\/p>/gis, (match, attrs, content) => {
+      const normalizedContent = content
+        .replace(/\s+/g, ' ') // Múltiples espacios/tabs/saltos → un espacio
+        .trim();
+      return `<p${attrs}>${normalizedContent}</p>`;
+    })
+    // NUEVO: Normalizar espacios dentro de divs que NO contienen <p> (casos como pregunta 1399)
+    .replace(/<div([^>]*)>(.*?)<\/div>/gis, (match, attrs, content) => {
+      // Solo aplicar si el div NO contiene etiquetas <p>
+      if (!content.includes('<p>') && !content.includes('</p>')) {
+        console.log('🎯 Normalizando div sin párrafos internos');
+        const normalizedContent = content
+          .replace(/\s+/g, ' ') // Múltiples espacios/tabs/saltos → un espacio
+          .trim();
+        return `<div${attrs}>${normalizedContent}</div>`;
+      }
+      return match; // Si contiene <p>, dejar sin cambios
+    })
+    // Normalizar espacios dentro de spans sin afectar estructura
+    .replace(/<span([^>]*)>(.*?)<\/span>/gis, (match, attrs, content) => {
+      const normalizedContent = content
+        .replace(/\s+/g, ' ')
+        .trim();
+      return `<span${attrs}>${normalizedContent}</span>`;
+    })
+    // Limpiar espacios extra entre etiquetas
+    .replace(/>\s+</g, '><')
+    .trim();
 }
 
 /**
