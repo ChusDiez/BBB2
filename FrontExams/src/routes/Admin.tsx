@@ -21,7 +21,7 @@ export default function Admin() {
   // Estados para selección múltiple y enriquecimiento
   const [selectedQuestions, setSelectedQuestions] = useState<Set<number>>(new Set());
   const [isEnriching, setIsEnriching] = useState(false);
-  const [enrichmentProvider, setEnrichmentProvider] = useState<'openai' | 'anthropic'>('openai');
+  const [enrichmentProvider, setEnrichmentProvider] = useState<'openai' | 'anthropic'>('anthropic');
   const [availableProviders, setAvailableProviders] = useState<any>({});
   const [showPreviewFor, setShowPreviewFor] = useState<number | null>(null);
   
