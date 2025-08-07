@@ -43,13 +43,34 @@ router.post('/add', async (req, res, next) => {
   try {
     const {
       topic,
+      block,
       feedback,
       ...data
     } = req.body;
+    
+    // ✅ AÑADIDO: Validaciones adicionales
+    const blockStr = String(block);
+    const topicNum = Number(topic);
+    
+    if (!['1', '2', '3'].includes(blockStr)) {
+      return res.status(400).json({ 
+        error: 'Block debe ser 1, 2 o 3',
+        details: `Valor recibido: ${block}` 
+      });
+    }
+    
+    if (!topicNum || topicNum < 1 || topicNum > 45) {
+      return res.status(400).json({ 
+        error: 'Topic debe ser un número entre 1 y 45',
+        details: `Valor recibido: ${topic}` 
+      });
+    }
+    
     const hasFeedback = feedback && feedback.trim().length;
     const result = await questionService.addQuestion({
       ...data,
-      topic: Number(topic),
+      block: blockStr,                 // ✅ CORREGIDO: Usar string para block
+      topic: topicNum,                 // ✅ CORREGIDO: Usar número validado para topic
       feedback: hasFeedback ? feedback : null,
     });
     res.status(200).json(result);

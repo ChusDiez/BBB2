@@ -12,8 +12,8 @@ export default function useAdmin(question: Question) {
   const modal = useModalContext();
   const dispatch = useAppDispatch();
   const [newQuestion, setNewQuestion] = useState(question || {
-    block: 0,
-    topic: 0,
+    block: 1,              // ✅ CORREGIDO: Valor por defecto válido
+    topic: 1,              // ✅ CORREGIDO: Valor por defecto válido
     question: '',
     optionA: '',
     optionB: '',
@@ -27,18 +27,24 @@ export default function useAdmin(question: Question) {
     && !!newQuestion.optionA
     && !!newQuestion.optionB
     && !!newQuestion.optionC
-    && !!newQuestion.correctAnswer,
+    && !!newQuestion.correctAnswer
+    && newQuestion.block >= 1 && newQuestion.block <= 3    // ✅ AÑADIDO: Validación de block
+    && newQuestion.topic >= 1 && newQuestion.topic <= 45,  // ✅ AÑADIDO: Validación de topic
     [newQuestion.correctAnswer,
       newQuestion.optionA,
       newQuestion.optionB,
       newQuestion.optionC,
-      newQuestion.question],
+      newQuestion.question,
+      newQuestion.block,      // ✅ AÑADIDO: Dependencia
+      newQuestion.topic],     // ✅ AÑADIDO: Dependencia
   );
 
   const setProperty = (propertyKey: string, value: string) => {
     setNewQuestion((prev: Question | any) => ({
       ...prev,
-      [propertyKey]: value,
+      [propertyKey]: propertyKey === 'block' || propertyKey === 'topic' 
+        ? parseInt(value) || 1  // ✅ CORREGIDO: Convertir a número
+        : value,
     }));
   };
 
