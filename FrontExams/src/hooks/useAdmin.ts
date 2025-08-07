@@ -50,7 +50,7 @@ export default function useAdmin(question: Question) {
 
   const addQuestion = useCallback(async () => {
     try {
-      if (Object.keys(question).length) {
+      if (question && Object.keys(question).length) {
         const { data } = await AdminAPI.update(newQuestion);
         dispatch(setQuestions(data.questions as Question[]));
       } else if (isValidQuestion) {

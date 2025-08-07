@@ -22,12 +22,12 @@ class QuestionService {
           },
           {
             id: {
-              [Op.notIn]: Sequelize.literal('(SELECT questionId from temporaryJoins)'),
+              [Op.notIn]: Sequelize.literal('(SELECT "questionId" from "temporaryJoins")'),
             },
           },
         ],
       },
-      order: Sequelize.literal('rand()'),
+      order: Sequelize.literal('RANDOM()'),
       limit: Number(limit),
     });
     return questions;
@@ -56,7 +56,7 @@ class QuestionService {
           },
         ],
       },
-      order: Sequelize.literal('rand()'),
+      order: Sequelize.literal('RANDOM()'),
       limit: Number(limit),
     });
     return questionsByTopic;
@@ -74,7 +74,7 @@ class QuestionService {
           },
         ],
       },
-      order: Sequelize.literal('rand()'),
+      order: Sequelize.literal('RANDOM()'),
       limit: Number(limit),
     });
     return questionsMultiple;
@@ -92,7 +92,7 @@ class QuestionService {
           },
         ],
       },
-      order: Sequelize.literal('rand()'),
+      order: Sequelize.literal('RANDOM()'),
       limit: Number(limit),
     });
     return questionsByBlock;

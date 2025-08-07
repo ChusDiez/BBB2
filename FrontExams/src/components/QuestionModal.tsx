@@ -51,14 +51,18 @@ export default function QuestionModal({ closeModal, payload }: ModalProps) {
     }
   }, [newQuestion?.feedback]);
 
-  // Debug: log cuando cambian los proveedores o el feedback
+  // Debug: log cuando cambian los proveedores o el feedback (con throttling para evitar spam)
   useEffect(() => {
-    console.log('Debug - Estado actual:', {
-      proveedores: availableProviders,
-      tieneFeedback: !!newQuestion?.feedback,
-      debeMostrarBoton: availableProviders.hasAny && !!newQuestion?.feedback
-    });
-  }, [availableProviders, newQuestion?.feedback]);
+    const timeoutId = setTimeout(() => {
+      console.log('Debug - Estado actual:', {
+        proveedores: availableProviders,
+        tieneFeedback: !!newQuestion?.feedback,
+        debeMostrarBoton: availableProviders.hasAny && !!newQuestion?.feedback
+      });
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [availableProviders.hasAny, availableProviders.openai, availableProviders.anthropic, newQuestion?.feedback]);
 
   // Función para limpiar texto al pegar
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
