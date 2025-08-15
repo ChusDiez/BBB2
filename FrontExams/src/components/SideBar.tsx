@@ -109,6 +109,19 @@ export default function SideBar() {
             pending: isPending,
             'center-start gap-3 p-3 rounded-3 w-100': true,
           })}
+          to="/evolcampus-import"
+        >
+          <i className="bi bi-mortarboard-fill" />
+          <p className="m-0">
+            Evolcampus Import
+          </p>
+        </NavLink>
+        <NavLink
+          className={({ isActive, isPending }) => classNames({
+            active: isActive,
+            pending: isPending,
+            'center-start gap-3 p-3 rounded-3 w-100': true,
+          })}
           to="/admin"
         >
           <i className="bi bi-key-fill" />

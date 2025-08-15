@@ -6,6 +6,7 @@ import Multiple from './routes/generator/Multiple';
 import Admin from './routes/Admin';
 import Historic from './routes/Historic';
 import Upload from './routes/Upload';
+import EvolcampusImport from './routes/EvolcampusImport';
 import Layout from './Layout';
 import Result from './routes/Result';
 
@@ -40,6 +41,10 @@ const router = createBrowserRouter([
   {
     path: '/upload',
     element: <Layout><Upload /></Layout>,
+  },
+  {
+    path: '/evolcampus-import',
+    element: <Layout><EvolcampusImport /></Layout>,
   },
   {
     path: '/historic',
