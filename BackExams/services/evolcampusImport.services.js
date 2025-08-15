@@ -414,12 +414,12 @@ class EvolcampusImportService {
   }
 
   /**
-   * Genera preview de las preguntas sin guardar en base de datos
+   * Genera preview de las preguntas SIN guardar en base de datos (método original)
    * @param {string} filePath - Ruta del archivo CSV
    * @param {number} topic - Tema asignado
    * @returns {Promise<object>} - Preview con preguntas y estadísticas
    */
-  async generatePreview(filePath, topic) {
+  async generatePreviewLegacy(filePath, topic) {
     const startTime = Date.now();
     
     try {
@@ -464,6 +464,174 @@ class EvolcampusImportService {
   }
 
   /**
+   * Genera preview CON registros temporales para permitir enriquecimiento
+   * @param {string} filePath - Ruta del archivo CSV
+   * @param {number} topic - Tema asignado
+   * @returns {Promise<object>} - Preview con preguntas que tienen IDs temporales
+   */
+  async generatePreview(filePath, topic) {
+    const startTime = Date.now();
+    
+    try {
+      console.log('🔄 Generando preview con registros temporales...');
+      
+      // Validar tema
+      if (!topic || isNaN(parseInt(topic)) || parseInt(topic) < 1 || parseInt(topic) > 45) {
+        throw new Error(`Tema inválido: ${topic}. Debe ser un número entre 1 y 45.`);
+      }
+
+      // Transformar CSV
+      const { questions, errors } = await this.transformCSV(filePath, topic);
+      
+      if (questions.length === 0 && errors.length > 0) {
+        throw new Error(`No se pudieron procesar preguntas válidas. Errores: ${errors.slice(0, 3).join('; ')}`);
+      }
+
+      // Verificar duplicados SIN crear registros temporales aún
+      const questionsWithDuplicateInfo = await this.checkDuplicates(questions);
+      
+      // Filtrar solo preguntas nuevas para crear registros temporales
+      const newQuestions = questionsWithDuplicateInfo.filter(q => q.status === 'new');
+      
+      console.log(`📝 Creando ${newQuestions.length} registros temporales...`);
+      
+      // Crear registros temporales en la BD para preguntas nuevas
+      const temporaryQuestions = [];
+      for (const question of newQuestions) {
+        try {
+          // Crear registro temporal con flag especial
+          const tempQuestion = await Questions.create({
+            ...question,
+            // Agregar flag temporal en el feedback para identificarlo después
+            feedback: `[TEMP_PREVIEW]${question.feedback || ''}`
+          });
+          
+          temporaryQuestions.push({
+            ...question,
+            id: tempQuestion.id, // ¡Ahora tiene ID real!
+            tempId: tempQuestion.id,
+            isTemporary: true
+          });
+        } catch (error) {
+          console.error(`❌ Error creando registro temporal:`, error);
+          // Si falla, mantener sin ID
+          temporaryQuestions.push({
+            ...question,
+            isTemporary: false
+          });
+        }
+      }
+      
+      // Combinar preguntas temporales con duplicadas (que no tienen ID temporal)
+      const allQuestionsWithIds = questionsWithDuplicateInfo.map(q => {
+        if (q.status === 'new') {
+          const tempQuestion = temporaryQuestions.find(tq => 
+            tq.question === q.question && tq.topic === q.topic
+          );
+          return tempQuestion || q;
+        }
+        return q; // Duplicadas sin modificar
+      });
+      
+      console.log(`✅ Preview generado con ${temporaryQuestions.length} registros temporales`);
+      
+      // Calcular estadísticas
+      const stats = {
+        total: questionsWithDuplicateInfo.length,
+        new: questionsWithDuplicateInfo.filter(q => q.status === 'new').length,
+        duplicates: questionsWithDuplicateInfo.filter(q => q.isDuplicate).length,
+        errors: errors.length,
+        topic: parseInt(topic),
+        block: this.calculateBlock(topic),
+        processingTime: Date.now() - startTime,
+        temporaryIds: temporaryQuestions.filter(q => q.isTemporary).map(q => q.tempId)
+      };
+
+      return {
+        success: true,
+        questions: allQuestionsWithIds,
+        stats,
+        errors: errors.slice(0, 10), // Limitar errores mostrados
+        hasMoreErrors: errors.length > 10,
+        hasTemporaryRecords: temporaryQuestions.some(q => q.isTemporary)
+      };
+      
+    } catch (error) {
+      console.error('❌ Error generando preview:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Limpia registros temporales del preview
+   * @param {Array} temporaryIds - Array de IDs temporales a eliminar
+   * @returns {Promise<number>} - Número de registros eliminados
+   */
+  async cleanTemporaryRecords(temporaryIds = []) {
+    if (!temporaryIds || temporaryIds.length === 0) {
+      // Si no se proporcionan IDs específicos, buscar todos los registros temporales
+      console.log('🧹 Buscando registros temporales por flag...');
+      const deletedCount = await Questions.destroy({
+        where: {
+          feedback: {
+            [Op.like]: '[TEMP_PREVIEW]%'
+          }
+        }
+      });
+      console.log(`🗑️ Eliminados ${deletedCount} registros temporales por flag`);
+      return deletedCount;
+    }
+
+    console.log(`🧹 Limpiando ${temporaryIds.length} registros temporales específicos...`);
+    const deletedCount = await Questions.destroy({
+      where: {
+        id: {
+          [Op.in]: temporaryIds
+        },
+        feedback: {
+          [Op.like]: '[TEMP_PREVIEW]%'
+        }
+      }
+    });
+    
+    console.log(`🗑️ Eliminados ${deletedCount} registros temporales`);
+    return deletedCount;
+  }
+
+  /**
+   * Convierte registros temporales en permanentes (confirma la importación)
+   * @param {Array} questionIds - IDs de preguntas temporales a confirmar
+   * @returns {Promise<number>} - Número de registros confirmados
+   */
+  async confirmTemporaryRecords(questionIds) {
+    console.log(`✅ Confirmando ${questionIds.length} registros temporales...`);
+    
+    const updatePromises = questionIds.map(async (id) => {
+      try {
+        const question = await Questions.findByPk(id);
+        if (question && question.feedback && question.feedback.startsWith('[TEMP_PREVIEW]')) {
+          // Remover flag temporal del feedback
+          const cleanFeedback = question.feedback.replace('[TEMP_PREVIEW]', '');
+          await question.update({
+            feedback: cleanFeedback
+          });
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error(`❌ Error confirmando registro ${id}:`, error);
+        return false;
+      }
+    });
+
+    const results = await Promise.all(updatePromises);
+    const confirmedCount = results.filter(Boolean).length;
+    
+    console.log(`✅ ${confirmedCount} registros confirmados como permanentes`);
+    return confirmedCount;
+  }
+
+  /**
    * Confirma e importa las preguntas seleccionadas
    * @param {Array} selectedQuestions - Preguntas seleccionadas para importar
    * @param {string} fileName - Nombre del archivo original
@@ -496,8 +664,26 @@ class EvolcampusImportService {
       let updatedQuestions = 0;
       const results = [];
 
-      // Procesar cada pregunta
-      for (const questionData of selectedQuestions) {
+      // Separar preguntas temporales de las nuevas
+      const temporaryQuestions = selectedQuestions.filter(q => q.isTemporary && q.tempId);
+      const regularQuestions = selectedQuestions.filter(q => !q.isTemporary);
+      
+      console.log(`📊 Procesando: ${temporaryQuestions.length} temporales, ${regularQuestions.length} regulares`);
+      
+      // Confirmar registros temporales primero
+      if (temporaryQuestions.length > 0) {
+        const temporaryIds = temporaryQuestions.map(q => q.tempId);
+        await this.confirmTemporaryRecords(temporaryIds);
+        
+        // Contar las temporales como nuevas
+        newQuestions += temporaryQuestions.length;
+        temporaryQuestions.forEach(q => {
+          results.push({ action: 'confirmed_temporary', id: q.tempId });
+        });
+      }
+
+      // Procesar preguntas regulares (no temporales)
+      for (const questionData of regularQuestions) {
         try {
           // Remover campos de control antes de guardar
           const cleanQuestion = {
@@ -601,6 +787,43 @@ class EvolcampusImportService {
       throw new Error(`Log de importación ${logId} no encontrado`);
     }
     return log;
+  }
+
+  /**
+   * Método de limpieza automática - llamar cuando se cancela el preview
+   * o después de un tiempo sin confirmar
+   * @param {number} maxAgeMinutes - Edad máxima en minutos (por defecto 30)
+   * @returns {Promise<number>} - Número de registros limpiados
+   */
+  async cleanupOldTemporaryRecords(maxAgeMinutes = 30) {
+    const cutoffTime = new Date();
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - maxAgeMinutes);
+    
+    console.log(`🧹 Limpiando registros temporales antiguos (más de ${maxAgeMinutes} minutos)...`);
+    
+    try {
+      const deletedCount = await Questions.destroy({
+        where: {
+          feedback: {
+            [Op.like]: '[TEMP_PREVIEW]%'
+          },
+          createdAt: {
+            [Op.lt]: cutoffTime
+          }
+        }
+      });
+      
+      if (deletedCount > 0) {
+        console.log(`🗑️ Eliminados ${deletedCount} registros temporales antiguos`);
+      } else {
+        console.log('✅ No hay registros temporales antiguos para limpiar');
+      }
+      
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Error limpiando registros temporales antiguos:', error);
+      return 0;
+    }
   }
 }
 
