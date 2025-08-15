@@ -26,43 +26,156 @@ class EvolcampusImportService {
 
   /**
    * Detecta cuál opción tiene la "x" y devuelve la letra correspondiente
+   * Maneja múltiples formatos de CSV de Evolcampus
    * @param {object} row - Fila del CSV con las opciones
+   * @param {array} allRows - Todas las filas para contexto
+   * @param {number} currentIndex - Índice actual para agrupación
    * @returns {object} - {correctAnswer: 'A'|'B'|'C', cleanedOptions: {optionA, optionB, optionC}}
    */
-  detectCorrectAnswer(row) {
-    const options = {
+  detectCorrectAnswer(row, allRows, currentIndex) {
+    // Formato 1: Estándar (x al inicio de la opción)
+    const standardOptions = {
       A: row['Opción A'] || row['OpcionA'] || row['OptionA'] || row['A'] || '',
       B: row['Opción B'] || row['OpcionB'] || row['OptionB'] || row['B'] || '',
       C: row['Opción C'] || row['OpcionC'] || row['OptionC'] || row['C'] || ''
     };
 
+    // Intentar formato estándar primero
     let correctAnswer = null;
-    const cleanedOptions = {};
+    let cleanedOptions = {};
+    let foundStandardFormat = false;
 
-    // Buscar la "x" en cada opción y limpiarla
-    Object.entries(options).forEach(([letter, option]) => {
+    Object.entries(standardOptions).forEach(([letter, option]) => {
       const optionStr = String(option).trim();
-      
-      // Detectar si esta opción tiene la "x"
       const hasX = /^x\s+/i.test(optionStr) || /^\s*x\s+/i.test(optionStr);
       
       if (hasX) {
+        foundStandardFormat = true;
         if (correctAnswer) {
           throw new Error(`Múltiples respuestas marcadas con "x" encontradas. Ya había "${correctAnswer}" y ahora "${letter}".`);
         }
         correctAnswer = letter;
-        // Limpiar la "x" del inicio
         cleanedOptions[`option${letter}`] = optionStr.replace(/^x\s+/i, '').replace(/^\s*x\s+/i, '').trim();
       } else {
         cleanedOptions[`option${letter}`] = optionStr;
       }
     });
 
+    if (foundStandardFormat && correctAnswer) {
+      return { correctAnswer, cleanedOptions };
+    }
+
+    // Formato 2: CSV con estructura específica (pregunta, opciones, explicación)
+    // Buscar patrón: fila con "*", seguida de opciones, una con "x" en columna 3
+    
+    // Obtener headers para trabajar con índices de columna
+    const headers = Object.keys(row);
+    
+    // Verificar si es una "x" standalone en alguna columna
+    for (let i = 0; i < headers.length; i++) {
+      const cellValue = String(row[headers[i]] || '').trim();
+      if (cellValue === 'x') {
+        // Encontramos la "x", ahora necesitamos reconstruir las opciones
+        return this.reconstructOptionsFromStructuredFormat(allRows, currentIndex, i);
+      }
+    }
+
+    // Formato 3: Buscar "x" en cualquier parte de las celdas
+    const allCells = Object.values(row);
+    for (let i = 0; i < allCells.length; i++) {
+      const cellValue = String(allCells[i] || '').trim();
+      if (cellValue === 'x') {
+        // La columna i tiene la "x"
+        return this.reconstructOptionsFromStructuredFormat(allRows, currentIndex, i);
+      }
+    }
+
+    throw new Error('No se encontró ninguna respuesta marcada con "x".');
+  }
+
+  /**
+   * Reconstruye las opciones desde un formato estructurado
+   * @param {array} allRows - Todas las filas
+   * @param {number} questionIndex - Índice de la pregunta
+   * @param {number} correctColumn - Columna que contiene la "x"
+   * @returns {object} - Opciones reconstruidas
+   */
+  reconstructOptionsFromStructuredFormat(allRows, questionIndex, correctColumn) {
+    const options = [];
+    const question = this.findQuestionInStructuredFormat(allRows, questionIndex);
+    
+    // Buscar las opciones relacionadas con esta pregunta
+    let i = questionIndex;
+    while (i < allRows.length) {
+      const row = allRows[i];
+      const firstCell = String(Object.values(row)[0] || '').trim();
+      const secondCell = String(Object.values(row)[1] || '').trim();
+      
+      // Si encontramos otra pregunta (*) o explicación (@), paramos
+      if ((firstCell === '*' || firstCell === '@') && i > questionIndex) {
+        break;
+      }
+      
+      // Si la primera columna está vacía y la segunda tiene contenido, es una opción
+      if (!firstCell && secondCell) {
+        options.push({
+          text: secondCell,
+          columnIndex: i,
+          hasX: Object.values(row).some((cell, cellIndex) => 
+            String(cell || '').trim() === 'x' && cellIndex === correctColumn
+          )
+        });
+      }
+      
+      i++;
+    }
+
+    if (options.length === 0) {
+      throw new Error('No se encontraron opciones para la pregunta.');
+    }
+
+    // Asignar letras A, B, C a las opciones encontradas
+    const cleanedOptions = {};
+    let correctAnswer = null;
+    
+    options.forEach((option, index) => {
+      const letter = String.fromCharCode(65 + index); // A, B, C
+      cleanedOptions[`option${letter}`] = option.text;
+      
+      if (option.hasX) {
+        if (correctAnswer) {
+          throw new Error(`Múltiples respuestas marcadas encontradas.`);
+        }
+        correctAnswer = letter;
+      }
+    });
+
     if (!correctAnswer) {
-      throw new Error('No se encontró ninguna respuesta marcada con "x".');
+      throw new Error('No se encontró respuesta correcta marcada en las opciones.');
     }
 
     return { correctAnswer, cleanedOptions };
+  }
+
+  /**
+   * Encuentra el texto de la pregunta en formato estructurado
+   * @param {array} allRows - Todas las filas
+   * @param {number} startIndex - Índice donde empezar a buscar
+   * @returns {string} - Texto de la pregunta
+   */
+  findQuestionInStructuredFormat(allRows, startIndex) {
+    // Buscar hacia atrás la fila que empiece con "*"
+    for (let i = startIndex; i >= 0; i--) {
+      const row = allRows[i];
+      const firstCell = String(Object.values(row)[0] || '').trim();
+      const secondCell = String(Object.values(row)[1] || '').trim();
+      
+      if (firstCell === '*') {
+        return secondCell || 'Pregunta sin texto';
+      }
+    }
+    
+    return 'Pregunta no encontrada';
   }
 
   /**
@@ -119,8 +232,8 @@ class EvolcampusImportService {
       fs.createReadStream(filePath, { encoding: 'utf8' })
         .pipe(csv({
           separator: ';',
-          headers: true,
-          skipEmptyLines: true,
+          headers: false, // Cambiado a false para manejar el formato estructurado
+          skipEmptyLines: false, // Mantenemos líneas vacías para el contexto
           bom: true
         }))
         .on('data', (row) => {
@@ -129,46 +242,146 @@ class EvolcampusImportService {
         .on('end', () => {
           console.log(`📄 Procesando ${results.length} filas del CSV`);
           
-          results.forEach((row, index) => {
-            try {
-              // Detectar respuesta correcta y limpiar opciones
-              const { correctAnswer, cleanedOptions } = this.detectCorrectAnswer(row);
-              
-              // Obtener el texto de la pregunta
-              const questionText = row['Pregunta'] || row['Question'] || row['Enunciado'] || '';
-              
-              // Crear objeto pregunta
-              const question = {
-                question: questionText.trim(),
-                optionA: cleanedOptions.optionA,
-                optionB: cleanedOptions.optionB,
-                optionC: cleanedOptions.optionC,
-                correctAnswer,
-                topic: parseInt(topic),
-                block,
-                feedback: row['Feedback'] || row['Explicación'] || null
-              };
-
-              // Validar la pregunta
-              const validationErrors = this.validateQuestion(question, index);
-              
-              if (validationErrors.length > 0) {
-                errors.push(...validationErrors);
-              } else {
-                questions.push(question);
-              }
-              
-            } catch (error) {
-              errors.push(`Fila ${index + 1}: ${error.message}`);
+          // Procesar formato estructurado: buscar preguntas (*)
+          const processedQuestions = this.parseStructuredFormat(results, topic, block);
+          
+          processedQuestions.forEach((result) => {
+            if (result.success) {
+              questions.push(result.question);
+            } else {
+              errors.push(result.error);
             }
           });
           
+          console.log(`✅ Preguntas procesadas: ${questions.length}, Errores: ${errors.length}`);
           resolve({ questions, errors });
         })
         .on('error', (error) => {
           reject(new Error(`Error al leer el CSV: ${error.message}`));
         });
     });
+  }
+
+  /**
+   * Procesa CSV con formato estructurado (*, opciones, @)
+   * @param {array} rows - Todas las filas del CSV
+   * @param {number} topic - Tema asignado
+   * @param {string} block - Bloque calculado
+   * @returns {array} - Array de resultados procesados
+   */
+  parseStructuredFormat(rows, topic, block) {
+    const results = [];
+    let currentQuestionIndex = 0;
+    
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const firstCol = String(Object.values(row)[0] || '').trim();
+      const secondCol = String(Object.values(row)[1] || '').trim();
+      
+      // Buscar inicio de pregunta (*)
+      if (firstCol === '*' && secondCol) {
+        currentQuestionIndex++;
+        
+        try {
+          // Extraer pregunta
+          const questionText = secondCol;
+          
+          // Buscar opciones siguientes
+          const options = [];
+          let correctAnswer = null;
+          let j = i + 1;
+          
+          while (j < rows.length) {
+            const optionRow = rows[j];
+            const optFirstCol = String(Object.values(optionRow)[0] || '').trim();
+            const optSecondCol = String(Object.values(optionRow)[1] || '').trim();
+            
+            // Si encontramos otra pregunta (*) o explicación (@), paramos
+            if (optFirstCol === '*' || optFirstCol === '@') {
+              break;
+            }
+            
+            // Si primera columna vacía y segunda con contenido = opción
+            if (!optFirstCol && optSecondCol) {
+              const optionLetter = String.fromCharCode(65 + options.length); // A, B, C
+              options.push({
+                letter: optionLetter,
+                text: optSecondCol
+              });
+              
+              // Verificar si esta fila tiene "x" en alguna columna
+              const optionValues = Object.values(optionRow);
+              for (let k = 0; k < optionValues.length; k++) {
+                if (String(optionValues[k] || '').trim() === 'x') {
+                  if (correctAnswer) {
+                    throw new Error(`Múltiples respuestas marcadas en la pregunta ${currentQuestionIndex}`);
+                  }
+                  correctAnswer = optionLetter;
+                }
+              }
+            }
+            
+            j++;
+          }
+          
+          // Validar que tenemos todo lo necesario
+          if (options.length < 3) {
+            throw new Error(`La pregunta ${currentQuestionIndex} no tiene suficientes opciones (encontradas: ${options.length})`);
+          }
+          
+          if (!correctAnswer) {
+            throw new Error(`No se encontró respuesta correcta marcada en la pregunta ${currentQuestionIndex}`);
+          }
+          
+          // Buscar feedback (@)
+          let feedback = null;
+          if (j < rows.length) {
+            const feedbackRow = rows[j];
+            const feedbackFirstCol = String(Object.values(feedbackRow)[0] || '').trim();
+            const feedbackSecondCol = String(Object.values(feedbackRow)[1] || '').trim();
+            
+            if (feedbackFirstCol === '@' && feedbackSecondCol) {
+              feedback = feedbackSecondCol;
+            }
+          }
+          
+          // Crear objeto pregunta
+          const question = {
+            question: questionText.trim(),
+            optionA: options[0]?.text || '',
+            optionB: options[1]?.text || '',
+            optionC: options[2]?.text || '',
+            correctAnswer,
+            topic: parseInt(topic),
+            block,
+            feedback: feedback
+          };
+          
+          // Validar pregunta
+          const validationErrors = this.validateQuestion(question, currentQuestionIndex);
+          
+          if (validationErrors.length > 0) {
+            results.push({
+              success: false,
+              error: `Pregunta ${currentQuestionIndex}: ${validationErrors.join(', ')}`
+            });
+          } else {
+            results.push({
+              success: true,
+              question
+            });
+          }
+          
+        } catch (error) {
+          results.push({
+            success: false,
+            error: `Pregunta ${currentQuestionIndex}: ${error.message}`
+          });
+        }
+      }
+    }
+    
+    return results;
   }
 
   /**

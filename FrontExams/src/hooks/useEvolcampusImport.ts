@@ -21,6 +21,7 @@ export const useEvolcampusImport = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
 
   const evolcampusAPI = new EvolcampusAPI();
 
@@ -264,6 +265,61 @@ export const useEvolcampusImport = () => {
     return EvolcampusAPI.calculateBlock(topicNum);
   }, []);
 
+  // Enriquecimiento con IA
+  const enrichFeedbackWithAI = useCallback(async (provider: 'openai' | 'anthropic' = 'openai'): Promise<boolean> => {
+    if (!previewData) {
+      setError('No hay datos de preview disponibles para enriquecer');
+      return false;
+    }
+
+    const selectedData = getSelectedQuestionsData();
+    const questionsWithFeedback = selectedData.filter(q => q.feedback && q.feedback.trim());
+
+    if (questionsWithFeedback.length === 0) {
+      setError('No hay feedback disponible para enriquecer en las preguntas seleccionadas');
+      return false;
+    }
+
+    setEnrichmentLoading(true);
+    setError(null);
+
+    try {
+      console.log(`🤖 Enriqueciendo ${questionsWithFeedback.length} feedbacks con ${provider}`);
+      
+      const result = await evolcampusAPI.enrichFeedback(selectedData, provider);
+      
+      // Actualizar las preguntas en previewData con las versiones enriquecidas
+      const updatedQuestions = [...previewData.questions];
+      
+      result.questions.forEach((enrichedQ, resultIndex) => {
+        // Encontrar el índice original de la pregunta
+        Array.from(selectedQuestions).forEach(originalIndex => {
+          const originalQ = previewData.questions[originalIndex];
+          if (originalQ.question === enrichedQ.question) {
+            updatedQuestions[originalIndex] = enrichedQ;
+          }
+        });
+      });
+
+      setPreviewData({
+        ...previewData,
+        questions: updatedQuestions
+      });
+
+      setSuccess(
+        `✨ Enriquecimiento completado: ${result.stats.enrichedSuccessfully} feedback(s) mejorados con IA`
+      );
+      
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error durante el enriquecimiento: ${errorMessage}`);
+      return false;
+    } finally {
+      setEnrichmentLoading(false);
+    }
+  }, [previewData, selectedQuestions, getSelectedQuestionsData, evolcampusAPI]);
+
   return {
     // Estados
     activeStep,
@@ -276,6 +332,7 @@ export const useEvolcampusImport = () => {
     error,
     success,
     importResult,
+    enrichmentLoading,
 
     // Operaciones principales
     generatePreview,
@@ -315,6 +372,9 @@ export const useEvolcampusImport = () => {
     // Validaciones
     validateStep1,
     validateStep2,
+
+    // Enriquecimiento con IA
+    enrichFeedbackWithAI,
 
     // API helpers
     api: evolcampusAPI

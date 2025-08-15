@@ -1,4 +1,4 @@
-import { axiosInstance } from './configs/axiosConfig';
+import { UploadClient } from './configs/axiosConfig';
 
 /**
  * API para manejar importaciones desde Evolcampus
@@ -80,6 +80,21 @@ export interface ImportDetailsResponse {
   };
 }
 
+export interface EnrichmentStats {
+  totalQuestions: number;
+  questionsWithFeedback: number;
+  enrichedSuccessfully: number;
+  enrichmentErrors: number;
+  skipped: number;
+}
+
+export interface EnrichmentResponse {
+  success: boolean;
+  questions: EvolcampusQuestion[];
+  stats: EnrichmentStats;
+  provider: string;
+}
+
 /**
  * Clase para manejar las operaciones de importación de Evolcampus
  */
@@ -96,7 +111,7 @@ class EvolcampusAPI {
       formData.append('file', file);
       formData.append('topic', topic.toString());
 
-      const response = await axiosInstance.post('/upload/preview-evolcampus', formData, {
+      const response = await UploadClient.post('preview-evolcampus', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -104,7 +119,7 @@ class EvolcampusAPI {
       });
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generando preview:', error);
       
       // Manejar errores específicos
@@ -133,7 +148,7 @@ class EvolcampusAPI {
     userId?: string
   ): Promise<ImportResult> {
     try {
-      const response = await axiosInstance.post('/upload/confirm-evolcampus', {
+      const response = await UploadClient.post('confirm-evolcampus', {
         questions,
         fileName,
         userId,
@@ -142,7 +157,7 @@ class EvolcampusAPI {
       });
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error confirmando importación:', error);
       
       if (error.response?.status === 400) {
@@ -164,12 +179,12 @@ class EvolcampusAPI {
    */
   async getImportHistory(limit: number = 50): Promise<ImportHistoryResponse> {
     try {
-      const response = await axiosInstance.get('/upload/import-history', {
+      const response = await UploadClient.get('import-history', {
         params: { limit },
       });
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error obteniendo historial:', error);
       throw new Error('Error obteniendo historial de importaciones');
     }
@@ -182,16 +197,50 @@ class EvolcampusAPI {
    */
   async getImportDetails(logId: number): Promise<ImportDetailsResponse> {
     try {
-      const response = await axiosInstance.get(`/upload/import-details/${logId}`);
+      const response = await UploadClient.get(`import-details/${logId}`);
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error obteniendo detalles:', error);
       
       if (error.response?.status === 404) {
         throw new Error('Importación no encontrada');
       } else {
         throw new Error('Error obteniendo detalles de la importación');
+      }
+    }
+  }
+
+  /**
+   * Enriquece el feedback de las preguntas con IA
+   * @param questions - Array de preguntas para enriquecer
+   * @param provider - Proveedor de IA ('openai' o 'anthropic')
+   * @returns Promise con las preguntas enriquecidas
+   */
+  async enrichFeedback(
+    questions: EvolcampusQuestion[], 
+    provider: 'openai' | 'anthropic' = 'openai'
+  ): Promise<EnrichmentResponse> {
+    try {
+      const response = await UploadClient.post('enrich-feedback-evolcampus', {
+        questions,
+        provider,
+      }, {
+        timeout: 120000, // 2 minutos para el enriquecimiento con IA
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error enriqueciendo feedback:', error);
+      
+      if (error.response?.status === 400) {
+        throw new Error(error.response.data.message || 'Datos inválidos para enriquecimiento');
+      } else if (error.response?.status === 500) {
+        throw new Error('Error interno del servidor durante el enriquecimiento');
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('Timeout durante el enriquecimiento - proceso demorado');
+      } else {
+        throw new Error('Error conectando con el servidor');
       }
     }
   }

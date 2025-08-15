@@ -1,74 +1,6 @@
-import React, { useCallback } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  TextField,
-  Alert,
-  LinearProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Checkbox,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  Tooltip,
-  Divider,
-  FormControlLabel,
-  Switch
-} from '@mui/material';
-import {
-  CloudUpload,
-  Preview,
-  CheckCircle,
-  Error,
-  Edit,
-  Save,
-  Cancel,
-  FileDownload,
-  History,
-  Warning,
-  Info
-} from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
+import React, { useState, useCallback } from 'react';
 import { useEvolcampusImport } from '../hooks/useEvolcampusImport';
 import '../styles/evolcampus-import.scss';
-
-// Styled components
-const UploadBox = styled(Box)(({ theme }) => ({
-  border: `2px dashed ${theme.palette.primary.main}`,
-  borderRadius: theme.shape.borderRadius,
-  padding: theme.spacing(3),
-  textAlign: 'center',
-  cursor: 'pointer',
-  transition: 'border-color 0.3s ease',
-  '&:hover': {
-    borderColor: theme.palette.primary.dark,
-  },
-  '&.dragover': {
-    borderColor: theme.palette.secondary.main,
-    backgroundColor: theme.palette.action.hover,
-  }
-}));
-
-const StatsCard = styled(Card)(({ theme }) => ({
-  textAlign: 'center',
-  padding: theme.spacing(2),
-}));
 
 /**
  * Componente principal para importar CSV desde Evolcampus
@@ -101,7 +33,9 @@ const EvolcampusImporter = () => {
     handleReset,
     calculateBlock,
     getStatsSummary,
-    clearMessages
+    clearMessages,
+    enrichFeedbackWithAI,
+    enrichmentLoading
   } = useEvolcampusImport();
 
   // Estados locales para UI
@@ -139,59 +73,65 @@ const EvolcampusImporter = () => {
 
   // Renderizar paso 1: Upload y configuración
   const renderStep1 = () => (
-    <Box sx={{ maxWidth: 600, mx: 'auto' }}>
-      <Typography variant="h6" gutterBottom>
-        Paso 1: Subir archivo CSV y especificar tema
-      </Typography>
-      
-      <Box sx={{ mb: 3 }}>
-        <UploadBox
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById('file-input').click()}
-        >
-          <CloudUpload sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            {file ? file.name : 'Arrastra tu archivo CSV aquí o haz clic para seleccionar'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Formato esperado: Evolcampus CSV con respuestas marcadas con "x"
-          </Typography>
-          <input
-            id="file-input"
-            type="file"
-            accept=".csv"
-            onChange={handleFileInputChange}
-            style={{ display: 'none' }}
-          />
-        </UploadBox>
-      </Box>
+    <div className="container-fluid">
+      <div className="row justify-content-center">
+        <div className="col-md-8 col-lg-6">
+          <h5 className="mb-4">Paso 1: Subir archivo CSV y especificar tema</h5>
+          
+          <div 
+            className="upload-zone mb-4 p-4 border border-2 border-dashed text-center"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('file-input').click()}
+            style={{ cursor: 'pointer', borderColor: '#0d6efd', borderRadius: '8px' }}
+          >
+            <i className="bi bi-cloud-arrow-up display-1 text-primary mb-3"></i>
+            <h6 className="mb-2">
+              {file ? file.name : 'Arrastra tu archivo CSV aquí o haz clic para seleccionar'}
+            </h6>
+            <small className="text-muted">
+              Formato esperado: Evolcampus CSV con respuestas marcadas con "x"
+            </small>
+            <input
+              id="file-input"
+              type="file"
+              accept=".csv"
+              onChange={handleFileInputChange}
+              style={{ display: 'none' }}
+            />
+          </div>
 
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          label="Tema (1-45)"
-          type="number"
-          value={topic}
-          onChange={(e) => handleTopicChange(e.target.value)}
-          inputProps={{ min: 1, max: 45 }}
-          helperText={topic ? `Bloque calculado: ${calculateBlock(topic) || 'Inválido'}` : 'Especifica el tema para calcular el bloque automáticamente'}
-        />
-      </Box>
+          <div className="mb-4">
+            <label htmlFor="topic-input" className="form-label">Tema (1-45)</label>
+            <input
+              id="topic-input"
+              type="number"
+              className="form-control"
+              value={topic}
+              onChange={(e) => handleTopicChange(e.target.value)}
+              min="1"
+              max="45"
+              placeholder="Especifica el tema"
+            />
+            <div className="form-text">
+              {topic ? `Bloque calculado: ${calculateBlock(topic) || 'Inválido'}` : 'Especifica el tema para calcular el bloque automáticamente'}
+            </div>
+          </div>
 
-      <Box sx={{ textAlign: 'center' }}>
-        <Button
-          variant="contained"
-          size="large"
-          onClick={generatePreview}
-          disabled={!file || !topic || loading}
-          startIcon={<Preview />}
-        >
-          Generar Preview
-        </Button>
-      </Box>
-    </Box>
+          <div className="text-center">
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={generatePreview}
+              disabled={!file || !topic || loading}
+            >
+              <i className="bi bi-eye me-2"></i>
+              Generar Preview
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 
   // Renderizar tabla de preview editable
@@ -203,14 +143,15 @@ const EvolcampusImporter = () => {
       : previewData.questions.filter((_, index) => selectedQuestions.has(index));
 
     return (
-      <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
+      <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+        <table className="table table-hover">
+          <thead className="table-light sticky-top">
+            <tr>
+              <th style={{ width: '50px' }}>
+                <input
+                  type="checkbox"
+                  className="form-check-input"
                   checked={selectedQuestions.size === previewData.questions.length}
-                  indeterminate={selectedQuestions.size > 0 && selectedQuestions.size < previewData.questions.length}
                   onChange={() => {
                     if (selectedQuestions.size === previewData.questions.length) {
                       handleDeselectAll();
@@ -219,17 +160,18 @@ const EvolcampusImporter = () => {
                     }
                   }}
                 />
-              </TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Pregunta</TableCell>
-              <TableCell>Opción A</TableCell>
-              <TableCell>Opción B</TableCell>
-              <TableCell>Opción C</TableCell>
-              <TableCell>Correcta</TableCell>
-              <TableCell>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+              </th>
+              <th style={{ width: '100px' }}>Estado</th>
+              <th style={{ minWidth: '300px' }}>Pregunta</th>
+              <th style={{ width: '150px' }}>Opción A</th>
+              <th style={{ width: '150px' }}>Opción B</th>
+              <th style={{ width: '150px' }}>Opción C</th>
+              <th style={{ width: '80px' }}>Correcta</th>
+              <th style={{ width: '200px' }}>Feedback</th>
+              <th style={{ width: '100px' }}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
             {filteredQuestions.map((question, displayIndex) => {
               const actualIndex = showAllSelected 
                 ? displayIndex 
@@ -251,9 +193,9 @@ const EvolcampusImporter = () => {
                 />
               );
             })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -262,203 +204,273 @@ const EvolcampusImporter = () => {
     const stats = getStatsSummary();
     
     return (
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Paso 2: Preview y edición de preguntas
-        </Typography>
+      <div>
+        <h5 className="mb-4">Paso 2: Preview y edición de preguntas</h5>
 
         {/* Estadísticas */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <StatsCard>
-              <Typography variant="h4" color="primary">{stats?.total || 0}</Typography>
-              <Typography variant="body2">Total</Typography>
-            </StatsCard>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatsCard>
-              <Typography variant="h4" color="success.main">{stats?.newSelected || 0}</Typography>
-              <Typography variant="body2">Nuevas</Typography>
-            </StatsCard>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatsCard>
-              <Typography variant="h4" color="warning.main">{stats?.duplicatesSelected || 0}</Typography>
-              <Typography variant="body2">Duplicadas</Typography>
-            </StatsCard>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatsCard>
-              <Typography variant="h4" color="info.main">{stats?.selected || 0}</Typography>
-              <Typography variant="body2">Seleccionadas</Typography>
-            </StatsCard>
-          </Grid>
-        </Grid>
+        <div className="row g-3 mb-4">
+          <div className="col-md-3">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-primary mb-1">{stats?.total || 0}</h3>
+                <small className="text-muted">Total</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-success mb-1">{stats?.newSelected || 0}</h3>
+                <small className="text-muted">Nuevas</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-warning mb-1">{stats?.duplicatesSelected || 0}</h3>
+                <small className="text-muted">Duplicadas</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-info mb-1">{stats?.selected || 0}</h3>
+                <small className="text-muted">Seleccionadas</small>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {/* Controles */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <Button onClick={handleSelectAll} variant="outlined" size="small">
-          Seleccionar todas
-        </Button>
-        <Button onClick={handleDeselectAll} variant="outlined" size="small">
-          Deseleccionar todas
-        </Button>
-        <FormControlLabel
-          control={
-            <Switch
+        {/* Controles */}
+        <div className="d-flex gap-2 mb-3 flex-wrap align-items-center">
+          <button onClick={handleSelectAll} className="btn btn-outline-primary btn-sm">
+            Seleccionar todas
+          </button>
+          <button onClick={handleDeselectAll} className="btn btn-outline-secondary btn-sm">
+            Deseleccionar todas
+          </button>
+          
+          {/* Separador visual */}
+          <div className="vr mx-2"></div>
+          
+          {/* Botones de enriquecimiento con IA */}
+          <button 
+            onClick={() => enrichFeedbackWithAI('openai')} 
+            className="btn btn-outline-success btn-sm"
+            disabled={enrichmentLoading || selectedQuestions.size === 0}
+            title="Enriquecer feedback con OpenAI"
+          >
+            <i className="bi bi-robot me-1"></i>
+            {enrichmentLoading ? 'Enriqueciendo...' : 'IA OpenAI'}
+          </button>
+          
+          <button 
+            onClick={() => enrichFeedbackWithAI('anthropic')} 
+            className="btn btn-outline-info btn-sm"
+            disabled={enrichmentLoading || selectedQuestions.size === 0}
+            title="Enriquecer feedback con Claude (Anthropic)"
+          >
+            <i className="bi bi-stars me-1"></i>
+            {enrichmentLoading ? 'Enriqueciendo...' : 'IA Claude'}
+          </button>
+          
+          <div className="form-check ms-3">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="showAllCheck"
               checked={showAllSelected}
               onChange={(e) => setShowAllSelected(e.target.checked)}
             />
-          }
-          label="Mostrar todas"
-        />
-      </Box>
+            <label className="form-check-label" htmlFor="showAllCheck">
+              Mostrar todas
+            </label>
+          </div>
+        </div>
 
-      {/* Errores si los hay */}
-      {previewData.errors && previewData.errors.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">Se encontraron errores en algunas filas:</Typography>
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            {previewData.errors.slice(0, 5).map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
-          {previewData.hasMoreErrors && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Y {previewData.errors.length - 5} errores más...
-            </Typography>
-          )}
-        </Alert>
-      )}
+        {/* Errores si los hay */}
+        {previewData.errors && previewData.errors.length > 0 && (
+          <div className="alert alert-warning">
+            <h6 className="alert-heading">Se encontraron errores en algunas filas:</h6>
+            <ul className="mb-0">
+              {previewData.errors.slice(0, 5).map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+            {previewData.hasMoreErrors && (
+              <small className="d-block mt-2">
+                Y {previewData.errors.length - 5} errores más...
+              </small>
+            )}
+          </div>
+        )}
 
-      {/* Tabla de preview */}
-      {renderPreviewTable()}
+        {/* Tabla de preview */}
+        {renderPreviewTable()}
 
-      {/* Botones de acción */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-        <Button onClick={handleReset} variant="outlined">
-          Volver al inicio
-        </Button>
-        <Button
-          onClick={() => setConfirmDialog(true)}
-          variant="contained"
-          disabled={selectedQuestions.size === 0}
-          startIcon={<CheckCircle />}
-        >
-          Confirmar importación ({selectedQuestions.size} preguntas)
-        </Button>
-      </Box>
-    </Box>
+        {/* Botones de acción */}
+        <div className="d-flex justify-content-between mt-4">
+          <button onClick={handleReset} className="btn btn-outline-secondary">
+            Volver al inicio
+          </button>
+          <button
+            onClick={() => setConfirmDialog(true)}
+            className="btn btn-success"
+            disabled={selectedQuestions.size === 0}
+          >
+            <i className="bi bi-check-circle me-2"></i>
+            Confirmar importación ({selectedQuestions.size} preguntas)
+          </button>
+        </div>
+      </div>
     );
   };
 
   // Renderizar paso 3: Confirmación y resultados
   const renderStep3 = () => (
-    <Box sx={{ textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
-      <CheckCircle sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
-      <Typography variant="h5" gutterBottom>
-        ¡Importación completada exitosamente!
-      </Typography>
+    <div className="text-center" style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <i className="bi bi-check-circle display-1 text-success mb-3"></i>
+      <h4 className="mb-3">¡Importación completada exitosamente!</h4>
       
       {importResult && (
-        <Grid container spacing={2} sx={{ mt: 2, mb: 3 }}>
-          <Grid item xs={6}>
-            <StatsCard>
-              <Typography variant="h4" color="success.main">
-                {importResult.summary.newQuestions}
-              </Typography>
-              <Typography variant="body2">Preguntas nuevas</Typography>
-            </StatsCard>
-          </Grid>
-          <Grid item xs={6}>
-            <StatsCard>
-              <Typography variant="h4" color="warning.main">
-                {importResult.summary.updatedQuestions}
-              </Typography>
-              <Typography variant="body2">Preguntas actualizadas</Typography>
-            </StatsCard>
-          </Grid>
-        </Grid>
+        <div className="row g-3 mt-3 mb-4">
+          <div className="col-6">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-success mb-1">
+                  {importResult.summary.newQuestions}
+                </h3>
+                <small className="text-muted">Preguntas nuevas</small>
+              </div>
+            </div>
+          </div>
+          <div className="col-6">
+            <div className="card text-center">
+              <div className="card-body">
+                <h3 className="text-warning mb-1">
+                  {importResult.summary.updatedQuestions}
+                </h3>
+                <small className="text-muted">Preguntas actualizadas</small>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      <Button
+      <button
         onClick={handleReset}
-        variant="contained"
-        size="large"
-        sx={{ mt: 2 }}
+        className="btn btn-primary btn-lg mt-3"
       >
         Realizar otra importación
-      </Button>
-    </Box>
+      </button>
+    </div>
   );
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Paper sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            Importar CSV desde Evolcampus
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Importa preguntas de examen desde archivos CSV de Evolcampus con detección automática de respuestas
-          </Typography>
-        </Box>
+    <div className="evolcampus-importer p-4">
+      <div className="card">
+        <div className="card-body">
+          {/* Header */}
+          <div className="mb-4">
+            <h2 className="card-title">Importar CSV desde Evolcampus</h2>
+            <p className="text-muted">
+              Importa preguntas de examen desde archivos CSV de Evolcampus con detección automática de respuestas
+            </p>
+          </div>
 
-        {/* Stepper */}
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+          {/* Stepper */}
+          <div className="mb-4">
+            <div className="d-flex justify-content-between">
+              {steps.map((step, index) => (
+                <div 
+                  key={index} 
+                  className={`d-flex align-items-center ${index < steps.length - 1 ? 'flex-fill' : ''}`}
+                >
+                  <div 
+                    className={`rounded-circle d-flex align-items-center justify-content-center ${
+                      index <= activeStep ? 'bg-primary text-white' : 'bg-light text-muted'
+                    }`}
+                    style={{ width: '32px', height: '32px', fontSize: '14px' }}
+                  >
+                    {index + 1}
+                  </div>
+                  <span className={`ms-2 ${index <= activeStep ? 'text-primary fw-semibold' : 'text-muted'}`}>
+                    {step}
+                  </span>
+                  {index < steps.length - 1 && (
+                    <div 
+                      className={`flex-fill mx-3 ${index < activeStep ? 'bg-primary' : 'bg-light'}`}
+                      style={{ height: '2px' }}
+                    ></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Progress bar */}
-        {loading && <LinearProgress sx={{ mb: 2 }} />}
+          {/* Progress bar */}
+          {loading && (
+            <div className="progress mb-3" style={{ height: '3px' }}>
+              <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: '100%' }}></div>
+            </div>
+          )}
 
-        {/* Messages */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={clearMessages}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={clearMessages}>
-            {success}
-          </Alert>
-        )}
+          {/* Messages */}
+          {error && (
+            <div className="alert alert-danger alert-dismissible">
+              {error}
+              <button type="button" className="btn-close" onClick={clearMessages}></button>
+            </div>
+          )}
+          {success && (
+            <div className="alert alert-success alert-dismissible">
+              {success}
+              <button type="button" className="btn-close" onClick={clearMessages}></button>
+            </div>
+          )}
 
-        {/* Steps content */}
-        {activeStep === 0 && renderStep1()}
-        {activeStep === 1 && renderStep2()}
-        {activeStep === 2 && renderStep3()}
+          {/* Steps content */}
+          {activeStep === 0 && renderStep1()}
+          {activeStep === 1 && renderStep2()}
+          {activeStep === 2 && renderStep3()}
 
-        {/* Confirmation Dialog */}
-        <Dialog open={confirmDialog} onClose={() => setConfirmDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Confirmar importación</DialogTitle>
-          <DialogContent>
-            <Typography>
-              ¿Estás seguro de que quieres importar {selectedQuestions.size} preguntas?
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                • {previewData?.questions.filter((_, i) => selectedQuestions.has(i) && !previewData.questions[i].isDuplicate).length || 0} preguntas nuevas se crearán
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                • {previewData?.questions.filter((_, i) => selectedQuestions.has(i) && previewData.questions[i].isDuplicate).length || 0} preguntas duplicadas se actualizarán
-              </Typography>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmDialog(false)}>Cancelar</Button>
-            <Button onClick={confirmImport} variant="contained" disabled={loading}>
-              Confirmar
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Paper>
-    </Box>
+          {/* Confirmation Modal */}
+          {confirmDialog && (
+            <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title">Confirmar importación</h5>
+                    <button type="button" className="btn-close" onClick={() => setConfirmDialog(false)}></button>
+                  </div>
+                  <div className="modal-body">
+                    <p>¿Estás seguro de que quieres importar {selectedQuestions.size} preguntas?</p>
+                    <div className="mt-3">
+                      <small className="text-muted d-block">
+                        • {previewData?.questions.filter((_, i) => selectedQuestions.has(i) && !previewData.questions[i].isDuplicate).length || 0} preguntas nuevas se crearán
+                      </small>
+                      <small className="text-muted d-block">
+                        • {previewData?.questions.filter((_, i) => selectedQuestions.has(i) && previewData.questions[i].isDuplicate).length || 0} preguntas duplicadas se actualizarán
+                      </small>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={() => setConfirmDialog(false)}>
+                      Cancelar
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={confirmImport} disabled={loading}>
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -482,118 +494,146 @@ const QuestionRow = React.memo(({ question, index, isSelected, isEditing, onTogg
 
   if (isEditing) {
     return (
-      <TableRow sx={{ bgcolor: 'action.hover' }}>
-        <TableCell padding="checkbox">
-          <Checkbox checked={isSelected} onChange={() => onToggle(index)} />
-        </TableCell>
-        <TableCell>
-          <Chip 
-            label={question.isDuplicate ? 'Actualizar' : 'Nueva'} 
-            color={question.isDuplicate ? 'warning' : 'success'}
-            size="small"
+      <tr className="table-active">
+        <td>
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={isSelected}
+            onChange={() => onToggle(index)}
           />
-        </TableCell>
-        <TableCell>
-          <TextField
-            multiline
-            rows={2}
-            fullWidth
-            size="small"
+        </td>
+        <td>
+          <span className={`badge ${question.isDuplicate ? 'bg-warning' : 'bg-success'}`}>
+            {question.isDuplicate ? 'Actualizar' : 'Nueva'}
+          </span>
+        </td>
+        <td>
+          <textarea
+            className="form-control form-control-sm"
+            rows="2"
             defaultValue={question.question}
             onChange={(e) => handleEditChange('question', e.target.value)}
           />
-        </TableCell>
-        <TableCell>
-          <TextField
-            fullWidth
-            size="small"
+        </td>
+        <td>
+          <input
+            type="text"
+            className="form-control form-control-sm"
             defaultValue={question.optionA}
             onChange={(e) => handleEditChange('optionA', e.target.value)}
           />
-        </TableCell>
-        <TableCell>
-          <TextField
-            fullWidth
-            size="small"
+        </td>
+        <td>
+          <input
+            type="text"
+            className="form-control form-control-sm"
             defaultValue={question.optionB}
             onChange={(e) => handleEditChange('optionB', e.target.value)}
           />
-        </TableCell>
-        <TableCell>
-          <TextField
-            fullWidth
-            size="small"
+        </td>
+        <td>
+          <input
+            type="text"
+            className="form-control form-control-sm"
             defaultValue={question.optionC}
             onChange={(e) => handleEditChange('optionC', e.target.value)}
           />
-        </TableCell>
-        <TableCell>
-          <TextField
-            select
-            size="small"
+        </td>
+        <td>
+          <select
+            className="form-select form-select-sm"
             defaultValue={question.correctAnswer}
             onChange={(e) => handleEditChange('correctAnswer', e.target.value)}
-            SelectProps={{ native: true }}
           >
             <option value="A">A</option>
             <option value="B">B</option>
             <option value="C">C</option>
-          </TextField>
-        </TableCell>
-        <TableCell>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton onClick={handleSave} color="primary" size="small">
-              <Save />
-            </IconButton>
-            <IconButton onClick={handleCancel} color="secondary" size="small">
-              <Cancel />
-            </IconButton>
-          </Box>
-        </TableCell>
-      </TableRow>
+          </select>
+        </td>
+        <td>
+          <textarea
+            className="form-control form-control-sm"
+            rows="2"
+            defaultValue={question.feedback || ''}
+            onChange={(e) => handleEditChange('feedback', e.target.value)}
+            placeholder="Feedback/Explicación"
+          />
+        </td>
+        <td>
+          <div className="d-flex gap-1">
+            <button onClick={handleSave} className="btn btn-success btn-sm" title="Guardar">
+              <i className="bi bi-check"></i>
+            </button>
+            <button onClick={handleCancel} className="btn btn-secondary btn-sm" title="Cancelar">
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
     );
   }
 
   return (
-    <TableRow sx={{ bgcolor: question.isDuplicate ? 'warning.light' : 'inherit' }}>
-      <TableCell padding="checkbox">
-        <Checkbox checked={isSelected} onChange={() => onToggle(index)} />
-      </TableCell>
-      <TableCell>
-        <Chip 
-          label={question.isDuplicate ? 'Duplicada' : 'Nueva'} 
-          color={question.isDuplicate ? 'warning' : 'success'}
-          size="small"
+    <tr className={question.isDuplicate ? 'table-warning' : ''}>
+      <td>
+        <input
+          type="checkbox"
+          className="form-check-input"
+          checked={isSelected}
+          onChange={() => onToggle(index)}
         />
-      </TableCell>
-      <TableCell sx={{ maxWidth: 300 }}>
-        <Typography variant="body2" noWrap>
-          {question.question.length > 100 
-            ? `${question.question.substring(0, 100)}...`
-            : question.question
-          }
-        </Typography>
-      </TableCell>
-      <TableCell sx={{ maxWidth: 150 }}>
-        <Typography variant="body2" noWrap>{question.optionA}</Typography>
-      </TableCell>
-      <TableCell sx={{ maxWidth: 150 }}>
-        <Typography variant="body2" noWrap>{question.optionB}</Typography>
-      </TableCell>
-      <TableCell sx={{ maxWidth: 150 }}>
-        <Typography variant="body2" noWrap>{question.optionC}</Typography>
-      </TableCell>
-      <TableCell>
-        <Chip label={question.correctAnswer} color="primary" size="small" />
-      </TableCell>
-      <TableCell>
-        <Tooltip title="Editar pregunta">
-          <IconButton onClick={() => onEdit(index)} size="small">
-            <Edit />
-          </IconButton>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
+      </td>
+      <td>
+        <span className={`badge ${question.isDuplicate ? 'bg-warning' : 'bg-success'}`}>
+          {question.isDuplicate ? 'Duplicada' : 'Nueva'}
+        </span>
+      </td>
+      <td className="text-truncate" style={{ maxWidth: '300px' }} title={question.question}>
+        {question.question.length > 100 
+          ? `${question.question.substring(0, 100)}...`
+          : question.question
+        }
+      </td>
+      <td className="text-truncate" style={{ maxWidth: '150px' }} title={question.optionA}>
+        {question.optionA}
+      </td>
+      <td className="text-truncate" style={{ maxWidth: '150px' }} title={question.optionB}>
+        {question.optionB}
+      </td>
+      <td className="text-truncate" style={{ maxWidth: '150px' }} title={question.optionC}>
+        {question.optionC}
+      </td>
+      <td>
+        <span className="badge bg-primary">{question.correctAnswer}</span>
+      </td>
+      <td className="text-truncate" style={{ maxWidth: '200px' }} title={question.feedback || 'Sin feedback'}>
+        {question.feedback ? (
+          <div className="d-flex align-items-center gap-1">
+            <span className="text-muted small">
+              {question.feedback.length > 50 
+                ? `${question.feedback.substring(0, 50)}...`
+                : question.feedback
+              }
+            </span>
+            {question.enriched && (
+              <i className="bi bi-stars text-success" title="Enriquecido con IA"></i>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted fst-italic">Sin feedback</span>
+        )}
+      </td>
+      <td>
+        <button
+          onClick={() => onEdit(index)}
+          className="btn btn-outline-primary btn-sm"
+          title="Editar pregunta"
+        >
+          <i className="bi bi-pencil"></i>
+        </button>
+      </td>
+    </tr>
   );
 });
 

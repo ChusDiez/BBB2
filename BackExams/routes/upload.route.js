@@ -4,11 +4,13 @@ import multiparty from 'multiparty';
 import fs from 'fs';
 import UploadService from '../services/upload.services.js';
 import EvolcampusImportService from '../services/evolcampusImport.services.js';
+import AIEnrichmentService from '../services/aiEnrichment.services.js';
 
 const router = express.Router();
 
 const uploadService = new UploadService();
 const evolcampusImportService = new EvolcampusImportService();
+const aiEnrichmentService = new AIEnrichmentService();
 
 router.get('/', async (req, res, next) => {
   res.send('This works - File loader');
@@ -190,6 +192,84 @@ router.get('/import-details/:logId', async (req, res) => {
     res.status(404).json({
       success: false,
       message: error.message || 'Importación no encontrada'
+    });
+  }
+});
+
+/**
+ * Endpoint para enriquecer feedback con IA
+ * POST /api/upload/enrich-feedback-evolcampus
+ * Body: {questions: Array, provider?: string}
+ */
+router.post('/enrich-feedback-evolcampus', async (req, res) => {
+  try {
+    const { questions, provider = 'openai' } = req.body;
+
+    // Validaciones básicas
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se recibieron preguntas para enriquecer'
+      });
+    }
+
+    // Verificar que hay feedback para enriquecer
+    const questionsWithFeedback = questions.filter(q => q.feedback && q.feedback.trim());
+    
+    if (questionsWithFeedback.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No hay feedback disponible para enriquecer en las preguntas seleccionadas'
+      });
+    }
+
+    console.log(`🤖 Enriqueciendo ${questionsWithFeedback.length} feedbacks con ${provider}`);
+
+    // Enriquecer feedback
+    const enrichmentResults = await aiEnrichmentService.enrichMultipleFeedbacks(questionsWithFeedback, provider);
+
+    // Mapear resultados de vuelta a las preguntas originales
+    const enrichedQuestions = questions.map(originalQ => {
+      const enrichmentResult = enrichmentResults.find(r => 
+        // Como no tenemos ID aún, buscar por contenido de pregunta
+        questionsWithFeedback.some(qwf => 
+          qwf.question === originalQ.question && 
+          qwf.feedback === originalQ.feedback
+        )
+      );
+
+      if (enrichmentResult && enrichmentResult.status === 'success') {
+        return {
+          ...originalQ,
+          feedback: enrichmentResult.enrichedFeedback,
+          enriched: true
+        };
+      }
+
+      return originalQ;
+    });
+
+    // Estadísticas
+    const stats = {
+      totalQuestions: questions.length,
+      questionsWithFeedback: questionsWithFeedback.length,
+      enrichedSuccessfully: enrichmentResults.filter(r => r.status === 'success').length,
+      enrichmentErrors: enrichmentResults.filter(r => r.status === 'error').length,
+      skipped: enrichmentResults.filter(r => r.status === 'skipped').length
+    };
+
+    res.status(200).json({
+      success: true,
+      questions: enrichedQuestions,
+      stats,
+      provider
+    });
+
+  } catch (error) {
+    console.error('❌ Error enriqueciendo feedback:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error procesando enriquecimiento con IA'
     });
   }
 });
