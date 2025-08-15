@@ -165,7 +165,7 @@ Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explica
       
       if (provider === 'anthropic' && this.anthropic) {
         const response = await this.anthropic.messages.create({
-          model: 'claude-3-5-sonnet-20241022', // Claude Sonnet 4
+          model: 'claude-sonnet-4-20250110', // Claude Sonnet 4 correcto
           max_tokens: 2048,
           temperature: 0.2,
           messages: [{
@@ -173,6 +173,7 @@ Devuelve ÚNICAMENTE el HTML completo con el div contenedor. No incluyas explica
             content: prompt
           }]
         });
+      
         
         enrichedText = response.content[0].text.trim();
         
