@@ -3,7 +3,7 @@ import { Op } from 'sequelize';
 import Questions from '../models/questions.model.js';
 
 class SearchService {
-  async searchQuestionsByQuery(query, block, topic) {
+  async searchQuestionsByQuery(query, block, topic, hasHtml) {
     const whereConditions = [];
         
     // Si hay query de texto, crear condición OR para buscar en todos los campos
@@ -28,8 +28,9 @@ class SearchService {
     if (topic && topic !== 0 && topic !== '0') {
       whereConditions.push({ topic: Number(topic) });
     }
-      // Nuevo filtro para HTML en feedback
-    if (hasHtml !== undefined && hasHtml !== null) {
+    
+    // Nuevo filtro para HTML en feedback (solo aplicar si hasHtml tiene un valor válido)
+    if (hasHtml !== undefined && hasHtml !== null && hasHtml !== '') {
       if (hasHtml === 'false' || hasHtml === false) {
         // Buscar feedbacks SIN HTML
         whereConditions.push({

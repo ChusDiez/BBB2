@@ -1,8 +1,9 @@
 // FrontExams/src/components/NavBar.tsx
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useCategories from '../hooks/useCategories';
 import useQuestions from '../hooks/useQuestions';
+import useDebounce from '../hooks/useDebounce';
 
 export default function NavBar() {
   const [querySearch, setQuerySearch] = useState({
@@ -10,6 +11,14 @@ export default function NavBar() {
     block: '',
     topic: '',
   });
+  
+  // Estado para controlar si la búsqueda automática está activa (temporalmente desactivada)
+  const [autoSearchEnabled, setAutoSearchEnabled] = useState(false);
+  
+  // Debounce para la búsqueda en tiempo real (500ms de delay)
+  const debouncedQuery = useDebounce(querySearch.query, 500);
+  const debouncedBlock = useDebounce(querySearch.block, 300);
+  const debouncedTopic = useDebounce(querySearch.topic, 300);
   
   const handleChange = ({ target }: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setQuerySearch((prev) => ({
@@ -23,21 +32,43 @@ export default function NavBar() {
   const { categories } = useCategories();
   const { callback: searchQuestions } = useQuestions();
 
-  async function handleSearch() {
-    // Preparar los parámetros de búsqueda, filtrando valores vacíos
+  // Efecto para detectar Cmd+F y desactivar temporalmente la búsqueda automática
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Detectar Cmd+F (Mac) o Ctrl+F (Windows/Linux)
+      if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+        setAutoSearchEnabled(false);
+        // Reactivar después de 2 segundos
+        setTimeout(() => setAutoSearchEnabled(true), 2000);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Función para preparar parámetros de búsqueda (memoizada para evitar recreaciones)
+  const prepareSearchParams = useCallback((query: string, block: string, topic: string) => {
     const searchParams: Record<string, string> = {};
     
-    if (querySearch.query.trim()) {
-      searchParams.query = querySearch.query.trim();
+    if (query.trim()) {
+      searchParams.query = query.trim();
     }
     
-    if (querySearch.block && querySearch.block !== '0') {
-      searchParams.block = querySearch.block;
+    if (block && block !== '0') {
+      searchParams.block = block;
     }
     
-    if (querySearch.topic && querySearch.topic !== '0') {
-      searchParams.topic = querySearch.topic;
+    if (topic && topic !== '0') {
+      searchParams.topic = topic;
     }
+    
+    return searchParams;
+  }, []);
+
+  // Función de búsqueda manual (botón y Enter)
+  async function handleSearch() {
+    const searchParams = prepareSearchParams(querySearch.query, querySearch.block, querySearch.topic);
 
     if (location.pathname.includes('admin')) {
       await searchQuestions(searchParams);
@@ -49,10 +80,39 @@ export default function NavBar() {
     }
   }
 
-  async function handlerKeyDown(key: string) {
-    if (key === 'Enter') {
+  // Efecto para búsqueda automática en tiempo real (simplificado)
+  useEffect(() => {
+    // Solo ejecutar búsqueda automática si está habilitada y estamos en admin
+    if (!autoSearchEnabled || !location.pathname.includes('admin')) {
+      return;
+    }
+
+    // Preparar parámetros directamente aquí para evitar dependencias complejas
+    const searchParams: Record<string, string> = {};
+    
+    if (debouncedQuery.trim()) {
+      searchParams.query = debouncedQuery.trim();
+    }
+    
+    if (debouncedBlock && debouncedBlock !== '0') {
+      searchParams.block = debouncedBlock;
+    }
+    
+    if (debouncedTopic && debouncedTopic !== '0') {
+      searchParams.topic = debouncedTopic;
+    }
+
+    searchQuestions(searchParams);
+    
+  }, [debouncedQuery, debouncedBlock, debouncedTopic, autoSearchEnabled, location.pathname]);
+
+  async function handlerKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    // Solo manejar Enter, dejar que otras teclas funcionen normalmente
+    if (event.key === 'Enter') {
+      event.preventDefault(); // Prevenir el comportamiento por defecto solo para Enter
       await handleSearch();
     }
+    // Para Cmd+F y otras combinaciones, no hacer nada (dejar que el navegador las maneje)
   }
 
   // Función para limpiar la búsqueda
@@ -61,12 +121,10 @@ export default function NavBar() {
       query: '',
       block: '0',
       topic: '0',
-      
     });
     
-    if (location.pathname.includes('admin')) {
-      await searchQuestions({});
-    }
+    // La búsqueda se ejecutará automáticamente por el useEffect cuando cambien los valores
+    // No necesitamos llamar manualmente a searchQuestions aquí
   };
 
   return (
@@ -80,7 +138,7 @@ export default function NavBar() {
             placeholder="Buscar en preguntas..."
             aria-label="search"
             value={querySearch.query}
-            onKeyDown={(({ key }) => handlerKeyDown(key))}
+            onKeyDown={handlerKeyDown}
             onChange={(e) => handleChange(e)}
           />
           <select

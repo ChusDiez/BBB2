@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
         query || '', 
         blockNum, 
         topicNum,
-        hasHtml // Pasar el nuevo parámetro
+        hasHtml || null // Pasar null si no está definido
       );
       res.json(result);
     } else {

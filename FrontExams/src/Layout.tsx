@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import NavBar from './components/NavBar';
+// import NavBar from './components/NavBar'; // Temporalmente desactivado
 import SideBar from './components/SideBar';
 
 type Props = {
@@ -13,7 +13,7 @@ export default function Layout({ children }: Props) {
           <SideBar />
         </div>
         <div className="flex-1 d-flex flex-column">
-          <NavBar />
+          {/* <NavBar /> Temporalmente desactivado */}
           <div className="py-1 p-lg-5 overflow-scroll h-100">
             {children}
           </div>
