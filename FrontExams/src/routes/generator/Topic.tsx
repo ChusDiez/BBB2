@@ -8,6 +8,40 @@ import ExcludeExams from '../../components/ExcludeExams';
 import useCategories from '../../hooks/useCategories';
 import useGeneratorByTopic from '../../hooks/useGeneratorByTopic';
 
+// Definición de niveles de dificultad basados en estadísticas reales
+const difficultyLevels = [
+  {
+    value: 'MUY_FACIL',
+    label: 'Muy Fácil',
+    percentage: '80-100%',
+    description: 'Perfecto para empezar'
+  },
+  {
+    value: 'FACIL',
+    label: 'Fácil',
+    percentage: '60-79%',
+    description: 'Nivel principiante'
+  },
+  {
+    value: 'MEDIO',
+    label: 'Medio',
+    percentage: '40-59%',
+    description: 'Nivel intermedio'
+  },
+  {
+    value: 'DIFICIL',
+    label: 'Difícil',
+    percentage: '20-39%',
+    description: 'Nivel avanzado'
+  },
+  {
+    value: 'MUY_DIFICIL',
+    label: 'Muy Difícil',
+    percentage: '0-19%',
+    description: 'Nivel experto'
+  }
+];
+
 export default function Topic() {
   const { categories } = useCategories();
   const {
@@ -19,6 +53,8 @@ export default function Topic() {
     handleExcludeExam,
     examName,
     setExamName,
+    difficulty,
+    setDifficulty,
   } = useGeneratorByTopic();
 
   return (
@@ -53,7 +89,7 @@ export default function Topic() {
                 className="d-flex radio-btn gap-1 p-1"
                 aria-label="Grupo de preguntas"
               >
-                {[25, 50, 100].map((optionAmount, i) => (
+                {[20, 25, 50, 100].map((optionAmount, i) => (
                   <button
                     className={classNames({
                       'btn btn-amount btn-sm flex-1': true,
@@ -84,6 +120,26 @@ export default function Topic() {
                 getOptionLabel={({ topic, name }: Category) => `${topic} - ${name}`}
                 getOptionValue={({ topic }: Category) => topic.toString()}
               />
+            </div>
+            <div>
+              <label
+                htmlFor="difficultySelect"
+                className="fw-normal text-gray-light mb-1"
+              >
+                Nivel de dificultad
+              </label>
+              <Select
+                defaultValue={null}
+                onChange={(e) => setDifficulty(e)}
+                placeholder="Seleccione dificultad"
+                options={difficultyLevels}
+                getOptionLabel={(option) => option ? `${option.label} (${option.percentage})` : ''}
+                getOptionValue={(option) => option ? option.value : ''}
+                isClearable
+              />
+              <small className="text-muted">
+                Opcional: Deje vacío para mezcla aleatoria de dificultades
+              </small>
             </div>
             <button
               type="button"

@@ -7,6 +7,7 @@ import dashboardRouter from './dashboard.route.js';
 import searchRouter from './search.route.js';
 import adminRouter from './admin.route.js';
 import enrichmentRouter from './enrichment.route.js';
+import unifiedUploadRouter from './unifiedUpload.route.js';
 
 function routerApi(app) {
   const router = express.Router();
@@ -15,6 +16,7 @@ function routerApi(app) {
   router.use('/questions', questionsRouter);
   router.use('/categories', categoriesRouter);
   router.use('/upload', uploadRouter);
+  router.use('/unified-upload', unifiedUploadRouter);
   router.use('/dashboard', dashboardRouter);
   router.use('/historic', historyRouter);
   router.use('/search', searchRouter);

@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import startTables from './utils/initializeDatabase.js';
 import { logError, errorMessage } from './middlewares/error.middleware.js';
 import routerApi from './routes/index.js';
+import { initializeTemporalService, setupGracefulShutdown } from './utils/initializeTemporalService.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -33,6 +34,10 @@ app.get('/', (req, res) => {
 });
 
 await startTables();
+
+// Configurar graceful shutdown
+setupGracefulShutdown();
+
 app.listen(PORT, async () => {
   // eslint-disable-next-line no-console
   console.log(`✅ Backend running on http://localhost:${PORT}`);
@@ -40,4 +45,14 @@ app.listen(PORT, async () => {
   console.log('📍 Accepting requests from:', corsOptions.origin);
   // eslint-disable-next-line no-console
   console.log('⚠️  Nota: SSL validation está deshabilitado para desarrollo');
+  
+  // Inicializar servicio temporal después de que el servidor esté listo
+  try {
+    // eslint-disable-next-line no-console
+    console.log('\n🕒 Inicializando servicios temporales...');
+    initializeTemporalService();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Error inicializando servicios temporales:', error);
+  }
 });

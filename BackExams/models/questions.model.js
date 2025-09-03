@@ -18,6 +18,11 @@ const Questions = pool.define('questions', {
   optionC: Sequelize.TEXT,
   correctAnswer: Sequelize.ENUM('A', 'B', 'C'),
   feedback: Sequelize.TEXT,
+  globally_available: {
+    type: Sequelize.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+  },
 });
 
 export default Questions;

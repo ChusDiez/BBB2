@@ -3,16 +3,31 @@
 import { useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import { Exam } from '../store/slice';
+import DifficultyBreakdown from '../components/DifficultyBreakdown';
 
 type ResultType = {
   questions: Exam;
   resourceIndex: number;
+  metadata?: {
+    requestedDifficulty?: string;
+    difficultyBreakdown?: {
+      MUY_FACIL: number;
+      FACIL: number;
+      MEDIO: number;
+      DIFICIL: number;
+      MUY_DIFICIL: number;
+      ALEATORIO: number;
+    };
+    totalRequested?: number;
+    totalObtained?: number;
+    excludedCount?: number;
+  };
 };
 
 export default function Result() {
   const { state } = useLocation();
   const { data, amount } = state;
-  const { questions, resourceIndex } = data as ResultType;
+  const { questions, resourceIndex, metadata } = data as ResultType;
 
   const verdict = useMemo(() => {
     if (questions.length === 0) {
@@ -35,7 +50,7 @@ export default function Result() {
         <a
           aria-label="Download word test"
           className="btn btn-light d-flex align-items-center"
-          href={`http://localhost:3000/api/v1/historic/download?id=${resourceIndex}&type=doc`}
+          href={`http://localhost:3001/api/v1/historic/download?id=${resourceIndex}&type=doc`}
         >
           Descargar Doc
           <i className="bi bi-file-earmark-word ms-2 fs-5" />
@@ -43,7 +58,7 @@ export default function Result() {
         <a
           aria-label="Download test"
           className="btn btn-light d-flex align-items-center"
-          href={`http://localhost:3000/api/v1/historic/download?id=${resourceIndex}&type=csv`}
+          href={`http://localhost:3001/api/v1/historic/download?id=${resourceIndex}&type=csv`}
         >
           Descargar Csv
           <i className="bi bi-file-earmark-arrow-down ms-2 fs-5" />
@@ -60,6 +75,17 @@ export default function Result() {
       <div className="p-4 bg-white rounded mb-3 shadow-sm">
         {verdict}
       </div>
+      
+      {/* Mostrar breakdown de dificultades si está disponible */}
+      {metadata?.difficultyBreakdown && (
+        <DifficultyBreakdown
+          breakdown={metadata.difficultyBreakdown}
+          totalRequested={metadata.totalRequested || amount}
+          totalObtained={metadata.totalObtained || questions.length}
+          requestedDifficulty={metadata.requestedDifficulty}
+          excludedCount={metadata.excludedCount}
+        />
+      )}
       {questions.length > 0 && (
       <div className="table-responsive mt-4 small">
         <table className="table table-borderless table-hover mb-0">

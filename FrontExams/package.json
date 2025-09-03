@@ -12,6 +12,7 @@
     "classnames": "^2.3.2",
     "dompurify": "^3.0.8",
     "filepond": "^4.30.4",
+    "filepond-plugin-file-validate-type": "^1.2.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-filepond": "^7.1.2",
@@ -51,7 +52,7 @@
     "webpack": "^5.64.4"
   },
   "scripts": {
-    "start": "PORT=3006 craco start",
+    "start": "PORT=3000 craco start",
     "build": "craco build",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
     "eject": "craco eject",

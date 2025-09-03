@@ -10,6 +10,7 @@ const QuestionsAPI = {
     topic: number,
     name: string,
     excludedExams: Array<string>,
+    difficulty?: string,
   ) {
     return QuestionsClient.get('topic', {
       params: {
@@ -17,6 +18,7 @@ const QuestionsAPI = {
         topic,
         name,
         excludedExams,
+        difficulty,
       },
     });
   },

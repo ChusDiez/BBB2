@@ -3,12 +3,14 @@ import arrayShuffle from 'array-shuffle';
 import QuestionService from '../services/questions.services.js';
 import HistoricService from '../services/historic.services.js';
 import ExcludeService from '../services/excludeExam.services.js';
+import DifficultyService from '../services/difficulty.services.js';
 
 const router = express.Router();
 
 const questionsService = new QuestionService();
 const historicService = new HistoricService();
 const excludeService = new ExcludeService();
+const difficultyService = new DifficultyService();
 
 router.get('/', async (req, res) => {
   res.json({
@@ -22,27 +24,130 @@ router.get('/topic', async (req, res, next) => {
     topic,
     name,
     excludedExams,
+    difficulty,
   } = req.query;
   try {
     let questions;
-    if (excludedExams) {
-      const excludedQuestions = await historicService.getQuestionsFromHistoric(excludedExams);
-      await excludeService.addToTemporaryTable(excludedQuestions);
-      questions = await questionsService.getQuestionsWithExcludedExams(
-        amount,
-        topic,
-        null,
+    
+    // Si se especifica dificultad, usar el servicio de dificultad
+    if (difficulty && !excludedExams) {
+      console.log(`🎯 Generando ${amount} preguntas del tema ${topic} con dificultad ${difficulty}`);
+      const difficultyResult = await difficultyService.getQuestionsByTopicAndDifficulty(
+        parseInt(amount),
+        parseInt(topic),
+        difficulty
       );
-      await excludeService.clearTemporaryTable();
+      questions = difficultyResult.questions;
+      
+      // Añadir información del breakdown de dificultades a la respuesta
+      const resourceIndex = await historicService.addRecord(
+        name, 
+        questions, 
+        'Tema', 
+        difficulty ? `${topic} (${difficulty})` : topic
+      );
+      
+      return res.json({
+        questions,
+        resourceIndex,
+        metadata: {
+          requestedDifficulty: difficulty,
+          actualCount: questions.length,
+          topic: parseInt(topic),
+          difficultyBreakdown: difficultyResult.difficultyBreakdown,
+          totalRequested: difficultyResult.totalRequested,
+          totalObtained: difficultyResult.totalObtained
+        }
+      });
+    } else if (excludedExams && difficulty) {
+      // NUEVO: Usar sistema de dificultad CON exámenes excluidos
+      const excludedQuestions = await historicService.getQuestionsFromHistoric(excludedExams);
+      console.log(`🎯 Generando ${amount} preguntas del tema ${topic} con dificultad ${difficulty} EXCLUYENDO ${excludedQuestions.length} preguntas`);
+      
+      const difficultyResult = await difficultyService.getQuestionsByTopicAndDifficultyWithExclusions(
+        parseInt(amount),
+        parseInt(topic),
+        difficulty,
+        excludedQuestions
+      );
+      questions = difficultyResult.questions;
+      
+      const resourceIndex = await historicService.addRecord(
+        name, 
+        questions, 
+        'Tema', 
+        difficulty ? `${topic} (${difficulty})` : topic
+      );
+      
+      return res.json({
+        questions,
+        resourceIndex,
+        metadata: {
+          requestedDifficulty: difficulty,
+          actualCount: questions.length,
+          topic: parseInt(topic),
+          difficultyBreakdown: difficultyResult.difficultyBreakdown,
+          totalRequested: difficultyResult.totalRequested,
+          totalObtained: difficultyResult.totalObtained,
+          excludedCount: excludedQuestions.length
+        }
+      });
+    } else if (excludedExams) {
+      // Lógica para exámenes excluidos SIN dificultad específica (aleatorio)
+      const excludedQuestions = await historicService.getQuestionsFromHistoric(excludedExams);
+      console.log(`🎲 Generando ${amount} preguntas ALEATORIAS del tema ${topic} EXCLUYENDO ${excludedQuestions.length} preguntas`);
+      
+      const difficultyResult = await difficultyService.getQuestionsByTopicAndDifficultyWithExclusions(
+        parseInt(amount),
+        parseInt(topic),
+        null, // Sin dificultad específica
+        excludedQuestions
+      );
+      questions = difficultyResult.questions;
+      
+      const resourceIndex = await historicService.addRecord(
+        name, 
+        questions, 
+        'Tema', 
+        topic
+      );
+      
+      return res.json({
+        questions,
+        resourceIndex,
+        metadata: {
+          requestedDifficulty: 'RANDOM',
+          actualCount: questions.length,
+          topic: parseInt(topic),
+          difficultyBreakdown: difficultyResult.difficultyBreakdown,
+          totalRequested: difficultyResult.totalRequested,
+          totalObtained: difficultyResult.totalObtained,
+          excludedCount: excludedQuestions.length
+        }
+      });
     } else {
+      // Lógica existente para preguntas aleatorias
       questions = await questionsService.getQuestionsByTopic(amount, topic);
     }
-    const resourceIndex = await historicService.addRecord(name, questions, 'Tema', topic);
+    
+    const resourceIndex = await historicService.addRecord(
+      name, 
+      questions, 
+      'Tema', 
+      difficulty ? `${topic} (${difficulty})` : topic
+    );
+    
     res.json({
       questions,
       resourceIndex,
+      metadata: {
+        requestedDifficulty: difficulty || 'RANDOM',
+        actualCount: questions.length,
+        topic: parseInt(topic)
+      }
     });
   } catch (error) {
+    console.error('Error en endpoint /topic:', error);
     next(error);
   }
 });
@@ -128,6 +233,21 @@ router.get('/block', async (req, res, next) => {
       resourceIndex,
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// Nuevo endpoint para obtener estadísticas de dificultad de un tema
+router.get('/topic/:topicId/difficulty-stats', async (req, res, next) => {
+  const { topicId } = req.params;
+  try {
+    const stats = await difficultyService.getTopicDifficultyStats(parseInt(topicId));
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de dificultad:', error);
     next(error);
   }
 });

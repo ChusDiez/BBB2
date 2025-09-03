@@ -90,19 +90,55 @@ export default function SideBar() {
             </div>
           </div>
         </div>
-        <NavLink
-          className={({ isActive, isPending }) => classNames({
-            active: isActive,
-            pending: isPending,
-            'center-start gap-3 p-3 rounded-3 w-100': true,
-          })}
-          to="/upload"
-        >
-          <i className="bi bi-cloud-arrow-up-fill" />
-          <p className="m-0">
-            Carga
-          </p>
-        </NavLink>
+        <div className="accordion">
+          <div className="accordion-item">
+            <div
+              className={classNames({
+                'accordion-button p-3 gap-3 collapsed': true,
+                active: location.pathname.match('upload'),
+              })}
+              data-bs-toggle="collapse"
+              data-bs-target="#uploadCollapse"
+              aria-expanded="false"
+              aria-controls="uploadCollapse"
+            >
+              <i className="bi bi-cloud-arrow-up-fill" />
+              <p className="m-0">
+                Carga
+              </p>
+            </div>
+            <div
+              id="uploadCollapse"
+              className="accordion-collapse collapse"
+              data-bs-parent="#upload"
+            >
+              <div className="center-start flex-column gap-3 ps-4 pt-3">
+                <NavLink
+                  className={({ isActive, isPending }) => classNames({
+                    active: isActive,
+                    pending: isPending,
+                    'dropdown-item p-3 rounded-3': true,
+                  })}
+                  to="/upload"
+                >
+                  <i className="bi bi-upload me-2" />
+                  Carga Básica
+                </NavLink>
+                <NavLink
+                  className={({ isActive, isPending }) => classNames({
+                    active: isActive,
+                    pending: isPending,
+                    'dropdown-item p-3 rounded-3': true,
+                  })}
+                  to="/upload-advanced"
+                >
+                  <i className="bi bi-calendar-event me-2" />
+                  Carga Avanzada
+                </NavLink>
+              </div>
+            </div>
+          </div>
+        </div>
         <NavLink
           className={({ isActive, isPending }) => classNames({
             active: isActive,

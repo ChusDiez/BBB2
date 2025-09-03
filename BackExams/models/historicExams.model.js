@@ -21,6 +21,14 @@ const Historic = pool.define('historics', {
   amount: Sequelize.INTEGER,
   category: Sequelize.ENUM('Tema', 'Bloque', 'Multiple'),
   type: Sequelize.STRING(20),
+  source_project: {
+    type: Sequelize.TEXT,
+    defaultValue: 'bb2'
+  }
+}, {
+  timestamps: true, // Esto añade createdAt y updatedAt automáticamente
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 });
 
 export default Historic;

@@ -91,8 +91,22 @@ async function handleCsvDownload(res, questions, name, examService) {
     
     console.log(`✅ CSV generado: ${filePath} (${fileStatus.size} bytes)`);
     
-    // Configurar headers
-    const safeName = encodeURIComponent(name).replace(/[^\w\-_.]/g, '_');
+    // Configurar headers - Limpiar nombre para CSV (igual que Word/HTML)
+    let cleanName = name;
+    cleanName = cleanName.replace(/\.(csv|docx?|xlsx?|pdf)$/i, '');
+    cleanName = cleanName.replace(/\.csv/gi, '');
+    
+    // Sanitizar nombre para el sistema de archivos (más permisivo)
+    const safeName = cleanName
+      .replace(/[<>:"/\\|?*]/g, '_')  // Solo reemplazar caracteres prohibidos en nombres de archivo
+      .replace(/\s+/g, '_')          // Reemplazar espacios múltiples con un guión bajo
+      .replace(/_{2,}/g, '_')        // Reemplazar múltiples guiones bajos con uno solo
+      .trim();
+    
+    console.log(`📝 Nombre original: "${name}"`);
+    console.log(`📝 Nombre limpio: "${cleanName}"`);
+    console.log(`📝 Nombre seguro: "${safeName}"`);
+    
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.csv"`);
     res.setHeader('Content-Length', fileStatus.size);
@@ -154,7 +168,12 @@ async function handleDocDownload(res, questions, name, hasFeedback, examService)
     console.log(`✅ Word generado: ${filePath} (${fileStatus.size} bytes)`);
     
     // Configurar headers para Word con nombre limpio
-    const safeName = encodeURIComponent(cleanName).replace(/[^\w\-_.]/g, '_');
+    const safeName = cleanName
+      .replace(/[<>:"/\\|?*]/g, '_')  // Solo reemplazar caracteres prohibidos en nombres de archivo
+      .replace(/\s+/g, '_')          // Reemplazar espacios múltiples con un guión bajo
+      .replace(/_{2,}/g, '_')        // Reemplazar múltiples guiones bajos con uno solo
+      .trim();
+    
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.docx"`);
     res.setHeader('Content-Length', fileStatus.size);
@@ -222,7 +241,12 @@ async function handleHtmlDownload(res, questions, name, hasFeedback, examService
     console.log(`✅ HTML generado: ${filePath} (${fileStatus.size} bytes)`);
     
     // Configurar headers para HTML
-    const safeName = encodeURIComponent(cleanName).replace(/[^\w\-_.]/g, '_');
+    const safeName = cleanName
+      .replace(/[<>:"/\\|?*]/g, '_')  // Solo reemplazar caracteres prohibidos en nombres de archivo
+      .replace(/\s+/g, '_')          // Reemplazar espacios múltiples con un guión bajo
+      .replace(/_{2,}/g, '_')        // Reemplazar múltiples guiones bajos con uno solo
+      .trim();
+    
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.html"`);
     res.setHeader('Content-Length', fileStatus.size);
