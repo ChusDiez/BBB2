@@ -6,16 +6,16 @@ import { mapBlock } from './config/blockConfig';
 import Card from './components/Card';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './components/Auth';
-import { API_URL } from './config/api';
+import { downloadHistoric } from './utils/downloadHelper';
 
 function Dashboard() {
   const { examsStats, questionStats } = useStats();
 
-  const lastExamUrl = useMemo(() => {
+  const handleLastExamDownload = () => {
     if (examsStats?.lastGenerated) {
-      return `${API_URL}/historic/download?id=${examsStats.lastGenerated.idExam}`;
-    } return '#';
-  }, [examsStats]);
+      downloadHistoric(examsStats.lastGenerated.idExam, 'doc');
+    }
+  };
 
   return (
     <>
@@ -82,12 +82,14 @@ function Dashboard() {
           </Card>
         </div>
         <div className="col-4 d-flex flex-column gap-3 h-100">
-          <a
+          <button
             className={classNames({
-              'text-decoration-none text-reset': true,
+              'text-decoration-none text-reset border-0 bg-transparent p-0 w-100': true,
               'pe-none': !examsStats?.lastGenerated,
             })}
-            href={lastExamUrl}
+            onClick={handleLastExamDownload}
+            disabled={!examsStats?.lastGenerated}
+            type="button"
           >
             <div className="p-3 d-flex align-items-center rounded-3 gap-3 card-3 h-100">
               <div className="circle center text-white fs-4">
@@ -102,7 +104,7 @@ function Dashboard() {
                 </p>
               </div>
             </div>
-          </a>
+          </button>
           <Card innerClass="flex-column gap-2 h-100 overflow-scroll">
             {questionStats?.countPerTopic?.map(({ topic, count }) => (
               <div

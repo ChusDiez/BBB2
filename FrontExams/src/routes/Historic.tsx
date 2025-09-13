@@ -1,6 +1,6 @@
 /* eslint-disable react/no-array-index-key */
 import useHistoric from '../hooks/useHistoric';
-import { DOWNLOAD_URL } from '../config/api';
+import { downloadHistoric } from '../utils/downloadHelper';
 
 export default function Historic() {
   const { historic, removeRecord } = useHistoric();
@@ -90,28 +90,31 @@ export default function Historic() {
                       </button>
                       <ul className="dropdown-menu dropdown-menu-end">
                         <li>
-                          <a
+                          <button
                             className="dropdown-item"
-                            href={`${DOWNLOAD_URL}?id=${idExam}&type=csv`}
+                            onClick={() => downloadHistoric(idExam, 'csv')}
+                            type="button"
                           >
                             CSV
-                          </a>
+                          </button>
                         </li>
                         <li>
-                          <a
+                          <button
                             className="dropdown-item"
-                            href={`${DOWNLOAD_URL}?id=${idExam}&type=doc`}
+                            onClick={() => downloadHistoric(idExam, 'doc')}
+                            type="button"
                           >
                             DOC
-                          </a>
+                          </button>
                         </li>
                         <li>
-                          <a
+                          <button
                             className="dropdown-item"
-                            href={`${DOWNLOAD_URL}?id=${idExam}&type=doc&feedback=true`}
+                            onClick={() => downloadHistoric(idExam, 'doc', true)}
+                            type="button"
                           >
                             DOC + feedback
-                          </a>
+                          </button>
                         </li>
                       </ul>
                     </div>

@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import { Exam } from '../store/slice';
 import DifficultyBreakdown from '../components/DifficultyBreakdown';
-import { API_URL } from '../config/api';
+import { downloadHistoric } from '../utils/downloadHelper';
 
 type ResultType = {
   questions: Exam;
@@ -48,22 +48,24 @@ export default function Result() {
     }
     return (
       <div className="d-flex justify-content-end gap-4">
-        <a
+        <button
           aria-label="Download word test"
           className="btn btn-light d-flex align-items-center"
-          href={`${API_URL}/historic/download?id=${resourceIndex}&type=doc`}
+          onClick={() => downloadHistoric(resourceIndex, 'doc')}
+          type="button"
         >
           Descargar Doc
           <i className="bi bi-file-earmark-word ms-2 fs-5" />
-        </a>
-        <a
+        </button>
+        <button
           aria-label="Download test"
           className="btn btn-light d-flex align-items-center"
-          href={`${API_URL}/historic/download?id=${resourceIndex}&type=csv`}
+          onClick={() => downloadHistoric(resourceIndex, 'csv')}
+          type="button"
         >
           Descargar Csv
           <i className="bi bi-file-earmark-arrow-down ms-2 fs-5" />
-        </a>
+        </button>
       </div>
     );
   }, [amount, questions.length, resourceIndex]);
