@@ -1,10 +1,11 @@
 import express from 'express';
 import CategoryService from '../services/category.services.js';
+import { authenticateUser } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 const categoryService = new CategoryService();
 
-router.get('/', async (req, res, next) => {
+router.get('/', authenticateUser, async (req, res, next) => {
   try {
     const categories = await categoryService.getAll();
     res.json(categories);
@@ -15,7 +16,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/filter', async (req, res, next) => {
+router.get('/filter', authenticateUser, async (req, res, next) => {
   const { block, topic } = req.query;
   try {
     if (block) {

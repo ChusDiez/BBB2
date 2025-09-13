@@ -5,6 +5,7 @@ import fs from 'fs';
 import HistoricService from '../services/historic.services.js';
 import QuestionService from '../services/questions.services.js';
 import ExamService from '../services/exam.services.js';
+import { authenticateUser } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const questionService = new QuestionService();
 const historicService = new HistoricService();
 const examService = new ExamService();
 
-router.get('/', async (req, res, next) => {
+router.get('/', authenticateUser, async (req, res, next) => {
   try {
     const data = await historicService.getAllRecords();
     res.json(data);
@@ -21,7 +22,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/download', async (req, res, next) => {
+router.get('/download', authenticateUser, async (req, res, next) => {
   const { id: historicId, type, feedback } = req.query;
   
   try {
@@ -64,7 +65,7 @@ router.get('/download', async (req, res, next) => {
   }
 });
 
-router.post('/delete', async (req, res, next) => {
+router.post('/delete', authenticateUser, async (req, res, next) => {
   try {
     const { id } = req.body;
     const removed = await historicService.removeRecord(id);

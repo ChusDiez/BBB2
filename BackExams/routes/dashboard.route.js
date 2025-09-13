@@ -1,12 +1,13 @@
 /* eslint-disable consistent-return */
 import express from 'express';
 import DashboardService from '../services/dashboard.services.js';
+import { authenticateUser } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
 const dashboardService = new DashboardService();
 
-router.get('/questions', async (req, res, next) => {
+router.get('/questions', authenticateUser, async (req, res, next) => {
   try {
     const data = await dashboardService.getQuestionSummary();
     res.json(data);
@@ -15,7 +16,7 @@ router.get('/questions', async (req, res, next) => {
   }
 });
 
-router.get('/exams', async (req, res, next) => {
+router.get('/exams', authenticateUser, async (req, res, next) => {
   try {
     const data = await dashboardService.getExamSummary();
     res.json(data);

@@ -4,6 +4,7 @@ import QuestionService from '../services/questions.services.js';
 import HistoricService from '../services/historic.services.js';
 import ExcludeService from '../services/excludeExam.services.js';
 import DifficultyService from '../services/difficulty.services.js';
+import { authenticateUser } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
   });
 });
 
-router.get('/topic', async (req, res, next) => {
+router.get('/topic', authenticateUser, async (req, res, next) => {
   const {
     amount,
     topic,
@@ -152,7 +153,7 @@ router.get('/topic', async (req, res, next) => {
   }
 });
 
-router.get('/multiple', async (req, res, next) => {
+router.get('/multiple', authenticateUser, async (req, res, next) => {
   const {
     amount,
     topics,
@@ -206,7 +207,7 @@ router.get('/multiple', async (req, res, next) => {
   }
 });
 
-router.get('/block', async (req, res, next) => {
+router.get('/block', authenticateUser, async (req, res, next) => {
   const {
     block,
     amount,
@@ -238,7 +239,7 @@ router.get('/block', async (req, res, next) => {
 });
 
 // Nuevo endpoint para obtener estadísticas de dificultad de un tema
-router.get('/topic/:topicId/difficulty-stats', async (req, res, next) => {
+router.get('/topic/:topicId/difficulty-stats', authenticateUser, async (req, res, next) => {
   const { topicId } = req.params;
   try {
     const stats = await difficultyService.getTopicDifficultyStats(parseInt(topicId));
