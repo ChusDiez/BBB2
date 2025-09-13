@@ -63,3 +63,4 @@ app.listen(PORT, async () => {
     console.error('❌ Error inicializando servicios temporales:', error);
   }
 });// Force redeploy sábado, 13 de septiembre de 2025, 19:30:29 CEST
+// Force redeploy to enable enrichment endpoint sábado, 13 de septiembre de 2025, 20:39:56 CEST
