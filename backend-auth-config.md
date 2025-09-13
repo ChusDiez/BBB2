@@ -9,7 +9,7 @@ npm install @supabase/supabase-js
 
 ## Variables de Entorno
 
-Añadir al archivo `.env` en BackExams:
+Añadir al archivo `.env` en BackExams:s
 
 ```env
 # Supabase Configuration
