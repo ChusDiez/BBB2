@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
 import { Exam } from '../store/slice';
 import DifficultyBreakdown from '../components/DifficultyBreakdown';
+import { API_URL } from '../config/api';
 
 type ResultType = {
   questions: Exam;
@@ -50,7 +51,7 @@ export default function Result() {
         <a
           aria-label="Download word test"
           className="btn btn-light d-flex align-items-center"
-          href={`http://localhost:3001/api/v1/historic/download?id=${resourceIndex}&type=doc`}
+          href={`${API_URL}/historic/download?id=${resourceIndex}&type=doc`}
         >
           Descargar Doc
           <i className="bi bi-file-earmark-word ms-2 fs-5" />
@@ -58,7 +59,7 @@ export default function Result() {
         <a
           aria-label="Download test"
           className="btn btn-light d-flex align-items-center"
-          href={`http://localhost:3001/api/v1/historic/download?id=${resourceIndex}&type=csv`}
+          href={`${API_URL}/historic/download?id=${resourceIndex}&type=csv`}
         >
           Descargar Csv
           <i className="bi bi-file-earmark-arrow-down ms-2 fs-5" />

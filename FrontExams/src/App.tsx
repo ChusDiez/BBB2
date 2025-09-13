@@ -6,13 +6,14 @@ import { mapBlock } from './config/blockConfig';
 import Card from './components/Card';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './components/Auth';
+import { API_URL } from './config/api';
 
 function Dashboard() {
   const { examsStats, questionStats } = useStats();
 
   const lastExamUrl = useMemo(() => {
     if (examsStats?.lastGenerated) {
-      return `http://localhost:3000/api/v1/historic/download?id=${examsStats.lastGenerated.idExam}`;
+      return `${API_URL}/historic/download?id=${examsStats.lastGenerated.idExam}`;
     } return '#';
   }, [examsStats]);
 

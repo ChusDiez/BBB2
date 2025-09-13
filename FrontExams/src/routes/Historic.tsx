@@ -1,5 +1,6 @@
 /* eslint-disable react/no-array-index-key */
 import useHistoric from '../hooks/useHistoric';
+import { DOWNLOAD_URL } from '../config/api';
 
 export default function Historic() {
   const { historic, removeRecord } = useHistoric();
@@ -91,7 +92,7 @@ export default function Historic() {
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=csv`}
+                            href={`${DOWNLOAD_URL}?id=${idExam}&type=csv`}
                           >
                             CSV
                           </a>
@@ -99,7 +100,7 @@ export default function Historic() {
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=doc`}
+                            href={`${DOWNLOAD_URL}?id=${idExam}&type=doc`}
                           >
                             DOC
                           </a>
@@ -107,25 +108,9 @@ export default function Historic() {
                         <li>
                           <a
                             className="dropdown-item"
-                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=doc&feedback=true`}
+                            href={`${DOWNLOAD_URL}?id=${idExam}&type=doc&feedback=true`}
                           >
                             DOC + feedback
-                          </a>
-                        </li>
-                        <li>
-                          <a
-                            className="dropdown-item"
-                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=html`}
-                          >
-                            HTML
-                          </a>
-                        </li>
-                        <li>
-                          <a
-                            className="dropdown-item"
-                            href={`http://localhost:3001/api/v1/historic/download?id=${idExam}&type=html&feedback=true`}
-                          >
-                            HTML + feedback
                           </a>
                         </li>
                       </ul>
