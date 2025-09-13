@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-// Usar variable de entorno o valor por defecto
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+// Usar variable de entorno o valor por defecto con /api/v1
+const baseURL = process.env.REACT_APP_API_URL ? 
+  `${process.env.REACT_APP_API_URL}/api/v1` : 
+  'http://localhost:8000/api/v1';
 
 export const CategoriesClient = axios.create({
   baseURL: `${baseURL}/categories/`,
