@@ -23,7 +23,7 @@ const corsOptions = {
     'http://localhost:3000',
     // URLs de producción (se configurarán después del despliegue)
     process.env.FRONTEND_URL,
-    'https://tu-frontend.vercel.app' // Se actualizará con la URL real
+    'https://bbb2-frontend.vercel.app' // URL de Vercel (se actualizará después del despliegue)
   ].filter(Boolean), // Filtrar valores undefined
   credentials: true,
   optionsSuccessStatus: 200
