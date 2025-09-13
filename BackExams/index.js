@@ -62,4 +62,4 @@ app.listen(PORT, async () => {
     // eslint-disable-next-line no-console
     console.error('❌ Error inicializando servicios temporales:', error);
   }
-});
+});// Force redeploy sábado, 13 de septiembre de 2025, 19:30:29 CEST
