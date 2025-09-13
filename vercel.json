@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "exams-frontend",
+  "builds": [
+    {
+      "src": "FrontExams/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "FrontExams/$1"
+    }
+  ],
+  "env": {
+    "REACT_APP_SUPABASE_URL": "@supabase_url",
+    "REACT_APP_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "REACT_APP_API_URL": "@api_url"
+  },
+  "build": {
+    "env": {
+      "REACT_APP_SUPABASE_URL": "@supabase_url",
+      "REACT_APP_SUPABASE_ANON_KEY": "@supabase_anon_key",
+      "REACT_APP_API_URL": "@api_url"
+    }
+  }
+}

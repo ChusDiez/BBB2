@@ -17,7 +17,14 @@ const PORT = process.env.PORT || 8000;
 
 // Configuración CORS más específica
 const corsOptions = {
-  origin: ['http://localhost:3006', 'http://localhost:3007', 'http://localhost:3000'],
+  origin: [
+    'http://localhost:3006', 
+    'http://localhost:3007', 
+    'http://localhost:3000',
+    // URLs de producción (se configurarán después del despliegue)
+    process.env.FRONTEND_URL,
+    'https://tu-frontend.vercel.app' // Se actualizará con la URL real
+  ].filter(Boolean), // Filtrar valores undefined
   credentials: true,
   optionsSuccessStatus: 200
 };

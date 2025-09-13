@@ -4,8 +4,10 @@ import classNames from 'classnames';
 import useStats from './hooks/useStats';
 import { mapBlock } from './config/blockConfig';
 import Card from './components/Card';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Auth from './components/Auth';
 
-export default function App() {
+function Dashboard() {
   const { examsStats, questionStats } = useStats();
 
   const lastExamUrl = useMemo(() => {
@@ -114,5 +116,33 @@ export default function App() {
         </div>
       </div>
     </>
+  );
+}
+
+function AppContent() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
+
+  return <Dashboard />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
