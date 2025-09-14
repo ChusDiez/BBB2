@@ -79,7 +79,7 @@ export const downloadWithAuth = async (endpoint: string, filename?: string) => {
 /**
  * Helper específico para descargas de históricos
  */
-export const downloadHistoric = (idExam: number, type: 'csv' | 'doc', feedback?: boolean) => {
+export const downloadHistoric = (idExam: number | string, type: 'csv' | 'doc', feedback?: boolean) => {
   const params = new URLSearchParams({
     id: idExam.toString(),
     type,
