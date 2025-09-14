@@ -6,6 +6,7 @@ import fs from 'fs';
 import UnifiedUploadService from '../services/unifiedUpload.services.js';
 import TemporalManagementService from '../services/temporalManagement.services.js';
 import RFMigrationService from '../scripts/migrate-existing-rfs.js';
+import { authenticateUser } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 const uploadService = new UnifiedUploadService();
@@ -385,7 +386,7 @@ router.post('/migration/execute', async (req, res) => {
  * Obtener exámenes programados
  * GET /api/v1/unified-upload/scheduled
  */
-router.get('/scheduled', async (req, res) => {
+router.get('/scheduled', authenticateUser, async (req, res) => {
   try {
     const SpecificExam = (await import('../models/specificExams.model.js')).default;
     
@@ -410,7 +411,7 @@ router.get('/scheduled', async (req, res) => {
  * Eliminar examen programado
  * DELETE /api/v1/unified-upload/scheduled/:examId
  */
-router.delete('/scheduled/:examId', async (req, res) => {
+router.delete('/scheduled/:examId', authenticateUser, async (req, res) => {
   try {
     const SpecificExam = (await import('../models/specificExams.model.js')).default;
     const examId = parseInt(req.params.examId);
@@ -442,7 +443,7 @@ router.delete('/scheduled/:examId', async (req, res) => {
  * Activar examen programado
  * POST /api/v1/unified-upload/scheduled/:examId/activate
  */
-router.post('/scheduled/:examId/activate', async (req, res) => {
+router.post('/scheduled/:examId/activate', authenticateUser, async (req, res) => {
   try {
     const SpecificExam = (await import('../models/specificExams.model.js')).default;
     const examId = parseInt(req.params.examId);
