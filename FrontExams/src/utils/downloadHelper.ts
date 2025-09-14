@@ -9,12 +9,25 @@ import { API_URL } from '../config/api';
  */
 export const downloadWithAuth = async (endpoint: string, filename?: string) => {
   try {
+    console.log('🔍 Iniciando descarga autenticada...');
+    
     // Obtener token de sesión
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    console.log('📋 Sesión obtenida:', {
+      hasSession: !!session,
+      hasToken: !!session?.access_token,
+      userEmail: session?.user?.email,
+      error: error?.message
+    });
     
     if (!session?.access_token) {
+      console.error('❌ No hay sesión activa o token');
       throw new Error('No hay sesión activa');
     }
+
+    console.log('🚀 Haciendo petición a:', `${API_URL}${endpoint}`);
+    console.log('🔑 Token (primeros 50 chars):', session.access_token.substring(0, 50) + '...');
 
     // Hacer petición autenticada
     const response = await fetch(`${API_URL}${endpoint}`, {
