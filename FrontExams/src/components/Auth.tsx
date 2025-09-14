@@ -86,11 +86,7 @@ export default function Auth() {
         </form>
 
         <div className="auth-footer">
-          <p>Solo usuarios autorizados:</p>
-          <ul>
-            <li>chus@iz.academy</li>
-            <li>felix@iz.academy</li>
-          </ul>
+          <p>Acceso restringido a administradores autorizados</p>
         </div>
       </div>
     </div>

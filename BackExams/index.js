@@ -1,8 +1,11 @@
 // Configurar SSL antes de cualquier otra cosa
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// Force Railway redeploy for /scheduled endpoint - Sun Sep 14 05:33:00 CEST 2025
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import startTables from './utils/initializeDatabase.js';
 import { logError, errorMessage } from './middlewares/error.middleware.js';
@@ -30,6 +33,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+}));
+// Limitar abusos en rutas sensibles
+const uploadsLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+app.use('/api/v1/unified-upload', uploadsLimiter);
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.urlencoded({ extended: true, charset: 'utf-8' }));
 app.use(logError);

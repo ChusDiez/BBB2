@@ -1,6 +1,6 @@
 // Tipos para el sistema unificado de upload
 
-export type UploadType = 'direct' | 'rf_exam' | 'future_questions' | 'custom_exam';
+export type UploadType = 'direct' | 'rf_exam' | 'future_questions' | 'custom_exam' | 'imp_exam';
 
 export interface RFWindow {
   examName: string;
@@ -25,6 +25,15 @@ export interface UnifiedUploadOptions {
   rfWindow?: RFWindow;
   globalRelease?: GlobalRelease;
   customExam?: CustomExam;
+}
+
+// Opciones específicas para IMP (solo usadas al llamar a la API IMP)
+export interface ImpUploadOptions {
+  themeNumber: number;
+  themeName: string;
+  windowStartDate: string; // ISO string
+  autoRelease: boolean;
+  immediatelyAvailable?: boolean;
 }
 
 export interface UploadResult {
@@ -76,7 +85,12 @@ export interface UnifiedUploadFormData {
   customExamType: string;
   customAvailabilityType: 'permanent' | 'temporary';
   
+  // IMP Exam fields
+  impThemeNumber: string; // use string for inputs, convert before send
+  impThemeName: string;
+  impWindowStartDate: string;
+  impAutoRelease: boolean;
+
   // General options
   immediatelyAvailable: boolean;
 }
-

@@ -4,12 +4,14 @@ import formidable from 'formidable';
 import path from 'path';
 import fs from 'fs';
 import UnifiedUploadService from '../services/unifiedUpload.services.js';
+import ImpUploadService from '../services/impUpload.services.js';
 import TemporalManagementService from '../services/temporalManagement.services.js';
 import RFMigrationService from '../scripts/migrate-existing-rfs.js';
-import { authenticateUser } from '../middlewares/auth.middleware.js';
+import { authenticateUser, ipAllowlist, originAllowlist } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 const uploadService = new UnifiedUploadService();
+const impUploadService = new ImpUploadService();
 const temporalService = new TemporalManagementService();
 const migrationService = new RFMigrationService();
 
@@ -21,7 +23,7 @@ const migrationService = new RFMigrationService();
  * 1️⃣ SUBIDA DIRECTA (comportamiento actual)
  * POST /api/v1/unified-upload/direct
  */
-router.post('/direct', async (req, res) => {
+router.post('/direct', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
   try {
     const form = formidable({
       maxFileSize: 50 * 1024 * 1024, // 50MB
@@ -64,7 +66,7 @@ router.post('/direct', async (req, res) => {
  * 2️⃣ RF CON VENTANA ESPECÍFICA
  * POST /api/v1/unified-upload/rf-exam
  */
-router.post('/rf-exam', async (req, res) => {
+router.post('/rf-exam', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
   try {
     const form = formidable({
       maxFileSize: 50 * 1024 * 1024,
@@ -119,10 +121,60 @@ router.post('/rf-exam', async (req, res) => {
 });
 
 /**
+ * 2️⃣.5 IMP CON CONTROL TEMPORAL
+ * POST /api/v1/unified-upload/imp-exam
+ */
+router.post('/imp-exam', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
+  try {
+    const form = formidable({
+      maxFileSize: 50 * 1024 * 1024,
+      keepExtensions: true,
+      uploadDir: './uploads/'
+    });
+
+    const [fields, files] = await form.parse(req);
+    const file = files.csvFile?.[0];
+
+    if (!file) {
+      return res.status(400).json({
+        error: true,
+        message: 'No se encontró archivo CSV'
+      });
+    }
+
+    // Parsear campos del formulario
+    const impOptions = {
+      themeNumber: fields.themeNumber?.[0] ? parseInt(fields.themeNumber[0]) : null,
+      themeName: fields.themeName?.[0],
+      windowStartDate: fields.windowStartDate?.[0] || null,
+      autoRelease: fields.autoRelease?.[0] === 'true',
+      immediatelyAvailable: fields.immediatelyAvailable?.[0] === 'true',
+    };
+
+    const result = await impUploadService.uploadImpExam(file.filepath, impOptions);
+
+    // Limpiar archivo temporal
+    fs.unlinkSync(file.filepath);
+
+    res.status(200).json({
+      error: false,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error en subida IMP:', error);
+    res.status(500).json({
+      error: true,
+      message: error.message || 'Error en subida IMP'
+    });
+  }
+});
+
+/**
  * 3️⃣ PREGUNTAS FUTURAS
  * POST /api/v1/unified-upload/future-questions
  */
-router.post('/future-questions', async (req, res) => {
+router.post('/future-questions', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
   try {
     const form = formidable({
       maxFileSize: 50 * 1024 * 1024,
@@ -168,7 +220,7 @@ router.post('/future-questions', async (req, res) => {
  * 4️⃣ EXAMEN PERSONALIZADO
  * POST /api/v1/unified-upload/custom-exam
  */
-router.post('/custom-exam', async (req, res) => {
+router.post('/custom-exam', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
   try {
     const form = formidable({
       maxFileSize: 50 * 1024 * 1024,
@@ -386,7 +438,7 @@ router.post('/migration/execute', async (req, res) => {
  * Obtener exámenes programados
  * GET /api/v1/unified-upload/scheduled
  */
-router.get('/scheduled', authenticateUser, async (req, res) => {
+router.get('/scheduled', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD_ROUTES === 'true' ? authenticateUser : (req, _res, next) => next()), async (req, res) => {
   try {
     const SpecificExam = (await import('../models/specificExams.model.js')).default;
     

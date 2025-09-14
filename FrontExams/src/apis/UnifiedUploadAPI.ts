@@ -1,11 +1,29 @@
 import axios from 'axios';
-import { UnifiedUploadOptions, UploadResult, ScheduledExam } from '../types/unifiedUpload';
+import { supabase } from '../lib/supabase';
+import { UnifiedUploadOptions, UploadResult, ScheduledExam, ImpUploadOptions } from '../types/unifiedUpload';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+// Usar la misma configuración que otros APIs
+const baseURL = process.env.REACT_APP_API_URL ? 
+  `${process.env.REACT_APP_API_URL}/api/v1` : 
+  'http://localhost:8000/api/v1';
 
 const UnifiedUploadClient = axios.create({
   baseURL: `${baseURL}/unified-upload/`,
 });
+
+// Interceptor para agregar token de autenticación
+UnifiedUploadClient.interceptors.request.use(
+  async (config: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return config;
+  },
+  (error: any) => {
+    return Promise.reject(error);
+  }
+);
 
 export default class UnifiedUploadAPI {
   /**
@@ -102,6 +120,27 @@ export default class UnifiedUploadAPI {
   }
 
   /**
+   * Upload examen IMP
+   */
+  static async uploadImpExam(file: File, options: ImpUploadOptions): Promise<UploadResult> {
+    const formData = new FormData();
+    formData.append('csvFile', file);
+    formData.append('themeNumber', String(options.themeNumber));
+    formData.append('themeName', options.themeName);
+    formData.append('windowStartDate', options.windowStartDate);
+    formData.append('autoRelease', String(options.autoRelease));
+    formData.append('immediatelyAvailable', String(options.immediatelyAvailable || true));
+
+    const { data } = await UnifiedUploadClient.post('imp-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return data.data;
+  }
+
+  /**
    * Obtener exámenes programados
    */
   static async getScheduledExams(): Promise<ScheduledExam[]> {
@@ -123,4 +162,3 @@ export default class UnifiedUploadAPI {
     await UnifiedUploadClient.post(`scheduled/${examId}/activate`);
   }
 }
-

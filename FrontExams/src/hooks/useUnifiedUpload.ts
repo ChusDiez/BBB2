@@ -72,6 +72,24 @@ export default function useUnifiedUpload() {
           result = await UnifiedUploadAPI.uploadCustomExam(formData.file, options);
           break;
 
+        case 'imp_exam': {
+          const themeNumber = parseInt(formData.impThemeNumber);
+          if (isNaN(themeNumber)) {
+            throw new Error('Número de tema inválido');
+          }
+          const windowStartISO = formData.impWindowStartDate
+            ? new Date(`${formData.impWindowStartDate}T00:00:00`).toISOString()
+            : '';
+          result = await UnifiedUploadAPI.uploadImpExam(formData.file, {
+            themeNumber,
+            themeName: formData.impThemeName,
+            windowStartDate: windowStartISO,
+            autoRelease: formData.impAutoRelease,
+            immediatelyAvailable: formData.immediatelyAvailable,
+          });
+          break;
+        }
+
         default:
           throw new Error('Tipo de upload no válido');
       }
@@ -149,4 +167,3 @@ export default function useUnifiedUpload() {
     clearResults,
   };
 }
-

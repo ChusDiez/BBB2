@@ -1,8 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import classNames from 'classnames';
+import { useAuth } from '../context/AuthContext';
 
 export default function SideBar() {
   const location = useLocation();
+  const { signOut, user } = useAuth();
 
   return (
     <aside className="sidebar h-100 p-3 rounded-end-4 text-white shadow-sm">
@@ -178,6 +180,27 @@ export default function SideBar() {
             Histórico
           </p>
         </NavLink>
+      </div>
+      
+      {/* Sección de usuario y cerrar sesión */}
+      <div className="mt-auto pt-3 border-top border-secondary">
+        <div className="d-flex align-items-center gap-2 mb-3 px-3">
+          <i className="bi bi-person-circle fs-5" />
+          <div className="flex-grow-1">
+            <p className="m-0 small text-light opacity-75">
+              {user?.email}
+            </p>
+          </div>
+        </div>
+        
+        <button
+          onClick={signOut}
+          className="btn btn-outline-light btn-sm w-100 d-flex align-items-center justify-content-center gap-2"
+          type="button"
+        >
+          <i className="bi bi-box-arrow-right" />
+          Cerrar Sesión
+        </button>
       </div>
     </aside>
   );

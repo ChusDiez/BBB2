@@ -47,6 +47,12 @@ export default function AdvancedUpload() {
     customExamType: 'practice',
     customAvailabilityType: 'permanent',
     
+    // IMP Exam
+    impThemeNumber: '',
+    impThemeName: '',
+    impWindowStartDate: '',
+    impAutoRelease: true,
+
     // General
     immediatelyAvailable: false,
   });
@@ -68,6 +74,19 @@ export default function AdvancedUpload() {
       [field]: value
     }));
   };
+
+  // Mantener nombre IMP sincronizado con el número (X_IMP)
+  useEffect(() => {
+    if (formData.uploadType === 'imp_exam') {
+      const n = parseInt(formData.impThemeNumber || '');
+      if (!isNaN(n) && n >= 1 && n <= 45) {
+        setFormData(prev => ({ ...prev, impThemeName: `${n}_IMP` }));
+      } else if (!formData.impThemeNumber) {
+        setFormData(prev => ({ ...prev, impThemeName: '' }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.impThemeNumber, formData.uploadType]);
 
   // Manejar archivo
   const handleFileChange = (fileItems: any[]) => {
@@ -102,6 +121,13 @@ export default function AdvancedUpload() {
         
       case 'custom_exam':
         return formData.customExamName.trim() !== '';
+      
+      case 'imp_exam':
+        return (
+          formData.impThemeNumber.trim() !== '' &&
+          /^\d+_IMP$/.test(formData.impThemeName.trim()) &&
+          formData.impWindowStartDate !== ''
+        );
         
       default:
         return false;
@@ -122,6 +148,11 @@ export default function AdvancedUpload() {
             value: 'rf_exam', 
             title: '📅 Examen RF', 
             desc: 'Disponible en ventana temporal específica' 
+          },
+          { 
+            value: 'imp_exam', 
+            title: '✅ Examen IMP', 
+            desc: 'Test imprescindible con 40 preguntas' 
           },
           { 
             value: 'future_questions', 
@@ -298,6 +329,68 @@ export default function AdvancedUpload() {
     );
   };
 
+  const renderIMPExamFields = () => {
+    if (formData.uploadType !== 'imp_exam') return null;
+    return (
+      <div className="mb-4">
+        <h6 className="fw-semibold mb-3">⚙️ Configuración Examen IMP</h6>
+        <div className="row g-3">
+          <div className="col-md-4">
+            <label className="form-label">Número de tema (1-45)</label>
+            <input
+              type="number"
+              className="form-control"
+              value={formData.impThemeNumber}
+              onChange={(e) => handleInputChange('impThemeNumber', e.target.value)}
+              min={1}
+              max={45}
+              placeholder="Ej: 1"
+              required
+            />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label">Nombre del tema</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.impThemeName}
+              onChange={(e) => handleInputChange('impThemeName', e.target.value)}
+              placeholder="Ej: 1_IMP"
+              required
+            />
+            <div className="form-text">Formato exacto: X_IMP</div>
+          </div>
+          <div className="col-md-4">
+            <label className="form-label">Fecha de inicio</label>
+            <input
+              type="date"
+              className="form-control"
+              value={formData.impWindowStartDate}
+              onChange={(e) => handleInputChange('impWindowStartDate', e.target.value)}
+              min={getTodayDate()}
+              required
+            />
+          </div>
+          <div className="col-12">
+            <div className="form-check mt-2">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="impAutoRelease"
+                checked={formData.impAutoRelease}
+                onChange={(e) => handleInputChange('impAutoRelease', e.target.checked)}
+              />
+              <label className="form-check-label" htmlFor="impAutoRelease">
+                Auto-liberar a los 7 días
+              </label>
+              <div className="form-text">Se calculará automáticamente desde la fecha de inicio</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderFutureQuestionsFields = () => {
     if (formData.uploadType !== 'future_questions') return null;
     
@@ -467,6 +560,7 @@ export default function AdvancedUpload() {
               {renderUploadTypeSelector()}
               {renderFileUpload()}
               {renderRFExamFields()}
+              {renderIMPExamFields()}
               {renderFutureQuestionsFields()}
               {renderCustomExamFields()}
               
@@ -531,4 +625,3 @@ export default function AdvancedUpload() {
     </div>
   );
 }
-
