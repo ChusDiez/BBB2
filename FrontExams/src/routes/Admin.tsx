@@ -1,19 +1,23 @@
 // FrontExams/src/routes/Admin.tsx
 /* eslint-disable react/no-array-index-key */
-import { useState, useCallback, useEffect, Fragment } from 'react';
-import DOMPurify from 'dompurify';
+import { useState, useCallback, useEffect } from 'react';
 import { useModalContext } from '../context/ModalContext';
 import useQuestions from '../hooks/useQuestions';
 import useCategories from '../hooks/useCategories';
 import EnrichmentAPI from '../apis/EnrichmentAPI';
 import { Question } from '../store/slice';
+import VirtualizedQuestionTable from '../components/VirtualizedQuestionTable';
 
 export default function Admin() {
   const {
     questions,
     isLoading,
+    isLoadingMore,
+    hasNextPage,
+    totalQuestions,
     deleteQuestion,
     searchParams,
+    loadMoreQuestions,
   } = useQuestions();
   const { categories } = useCategories();
   const { openModal } = useModalContext();
@@ -115,9 +119,20 @@ export default function Admin() {
     return true;
   });
 
+  // Función para editar pregunta
+  const handleEditQuestion = useCallback((question: Question) => {
+    openModal('addQuestion', { payload: { question } });
+  }, [openModal]);
+
+  // Función para mostrar preview
+  const handleShowPreview = useCallback((questionId: number) => {
+    setShowPreviewFor(showPreviewFor === questionId ? null : questionId);
+  }, [showPreviewFor]);
+
   // NUEVO: Calcular estadísticas
   const stats = {
-    total: questions.length,
+    total: totalQuestions || questions.length,
+    loaded: questions.length,
     withHtml: questions.filter(q => q.feedback && q.feedback.includes('<')).length,
     withoutHtml: questions.filter(q => q.feedback && !q.feedback.includes('<')).length,
     withoutFeedback: questions.filter(q => !q.feedback).length
@@ -150,7 +165,10 @@ export default function Admin() {
               <div className="d-flex gap-4 small text-muted">
                 <span>
                   <i className="bi bi-database me-1"></i>
-                  Total: <strong>{stats.total}</strong>
+                  Total: <strong>{stats.total}</strong> 
+                  {stats.loaded !== stats.total && (
+                    <span className="text-primary"> (cargadas: {stats.loaded})</span>
+                  )}
                 </span>
                 <span>
                   <i className="bi bi-check-circle-fill text-success me-1"></i>
@@ -266,177 +284,49 @@ export default function Admin() {
           </p>
         </div>
       ) : (
-        <div className="px-2">
-          <table className="table table-hover align-middle mb-0 px-3">
-            <thead>
-              <tr>
-                {/* NUEVO: Encabezado mejorado con botones de selección */}
-                <th style={{ width: '140px' }}>
-                  <div className="d-flex gap-1">
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={selectQuestionsWithoutHtml}
-                      title="Seleccionar todas las preguntas sin formato HTML"
-                    >
-                      <i className="bi bi-check-square me-1"></i>
-                      Sin HTML
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={deselectAll}
-                      title="Deseleccionar todas"
-                    >
-                      <i className="bi bi-square"></i>
-                    </button>
-                  </div>
-                </th>
-                <th className="text-truncate" style={{ width: '50%' }}>
-                  Pregunta
-                </th>
-                <th className="text-nowrap text-center">
-                  Bloque
-                </th>
-                <th className="text-nowrap text-center">
-                  Tema
-                </th>
-                <th className="text-center">
-                  Feedback
-                </th>
-                <th
-                  className="col-1 text-center"
-                  aria-label="opciones"
-                >
-                  Opciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredQuestions.map((question) => (
-                <Fragment key={question.id}>
-                  <tr
-                    className={selectedQuestions.has(question.id) ? 'table-active' : ''}
-                  >
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        checked={selectedQuestions.has(question.id)}
-                        onChange={() => toggleQuestionSelection(question.id)}
-                      />
-                    </td>
-                    <td 
-                      className="small text-truncate pointer" 
-                      style={{ maxWidth: '400px' }}
-                      onClick={() => openModal('addQuestion', { payload: { question } })}
-                    >
-                      {question.question}
-                    </td>
-                    <td className="text-nowrap text-center">
-                      <span className="badge bg-secondary">
-                        Bloque {question.block}
-                      </span>
-                    </td>
-                    <td className="text-nowrap text-center">
-                      {question.topic}
-                    </td>
-                    {/* NUEVO: Columna de feedback mejorada con indicadores visuales */}
-                    <td className="text-center">
-                      {question.feedback ? (
-                        <div className="d-flex justify-content-center align-items-center gap-1">
-                          {/* Indicador más claro del estado del feedback */}
-                          {question.feedback.includes('<') ? (
-                            <span 
-                              className="badge bg-success" 
-                              title="Feedback con formato HTML enriquecido"
-                            >
-                              <i className="bi bi-check-circle-fill me-1"></i>
-                              HTML
-                            </span>
-                          ) : (
-                            <span 
-                              className="badge bg-warning text-dark" 
-                              title="Feedback sin formato - Necesita enriquecimiento"
-                            >
-                              <i className="bi bi-exclamation-circle-fill me-1"></i>
-                              Texto
-                            </span>
-                          )}
-                          {/* Botón de preview */}
-                          <button
-                            className="btn btn-sm btn-link p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowPreviewFor(showPreviewFor === question.id ? null : question.id);
-                            }}
-                            title="Ver vista previa"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-muted">
-                          <i className="bi bi-dash"></i> Sin feedback
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="d-flex justify-content-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openModal('addQuestion', { payload: { question } });
-                          }}
-                          title="Editar pregunta"
-                        >
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (window.confirm('¿Estás seguro de que quieres eliminar esta pregunta?')) {
-                              await deleteQuestion(question.id);
-                            }
-                          }}
-                          title="Eliminar pregunta"
-                        >
-                          <i className="bi bi-trash" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  {/* Fila de vista previa del feedback */}
-                  {showPreviewFor === question.id && question.feedback && (
-                    <tr key={`preview-${question.id}`}>
-                      <td colSpan={6} className="p-0">
-                        <div className="bg-light p-3 m-2 rounded">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <h6 className="mb-0">Vista previa del feedback:</h6>
-                            <button
-                              className="btn btn-sm btn-close"
-                              onClick={() => setShowPreviewFor(null)}
-                              aria-label="Cerrar vista previa"
-                            />
-                          </div>
-                          <div 
-                            className="feedback-preview border bg-white p-3 rounded"
-                            dangerouslySetInnerHTML={{
-                              __html: /<[^>]+>/.test(question.feedback || '')
-                                ? DOMPurify.sanitize(question.feedback || '')
-                                : DOMPurify.sanitize((question.feedback || '').replace(/\n/g, '<br />'))
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          {/* Controles de selección rápida */}
+          <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded border">
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={selectQuestionsWithoutHtml}
+                title="Seleccionar todas las preguntas sin formato HTML"
+              >
+                <i className="bi bi-check-square me-1"></i>
+                Seleccionar sin HTML
+              </button>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={deselectAll}
+                title="Deseleccionar todas"
+              >
+                <i className="bi bi-square me-1"></i>
+                Deseleccionar todo
+              </button>
+            </div>
+            
+            {hasNextPage && (
+              <div className="text-muted small">
+                <i className="bi bi-info-circle me-1"></i>
+                Scroll hacia abajo para cargar más preguntas automáticamente
+              </div>
+            )}
+          </div>
+          
+          <VirtualizedQuestionTable
+            questions={filteredQuestions}
+            selectedQuestions={selectedQuestions}
+            onToggleSelection={toggleQuestionSelection}
+            onDeleteQuestion={deleteQuestion}
+            onEditQuestion={handleEditQuestion}
+            onShowPreview={handleShowPreview}
+            showPreviewFor={showPreviewFor}
+            categories={categories}
+            isLoading={isLoadingMore}
+            hasNextPage={hasNextPage}
+            loadNextPage={loadMoreQuestions}
+          />
         </div>
       )}
     </div>

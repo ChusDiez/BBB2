@@ -117,9 +117,23 @@ class QuestionService {
     return questions;
   }
 
-  async getAllQuestions() {
-    const result = await Questions.findAll();
+  async getAllQuestions(limit = null, offset = 0) {
+    const options = {
+      order: [['id', 'DESC']],
+    };
+    
+    if (limit) {
+      options.limit = Number(limit);
+      options.offset = Number(offset);
+    }
+    
+    const result = await Questions.findAll(options);
     return result;
+  }
+
+  async getQuestionsCount() {
+    const count = await Questions.count();
+    return count;
   }
 
   async addQuestion(question) {

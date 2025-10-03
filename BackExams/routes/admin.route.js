@@ -10,11 +10,13 @@ const searchService = new SearchService();
 
 router.get('/', async (req, res, next) => {
   try {
-    const { query, block, topic, hasHtml } = req.query; // Añadir hasHtml
+    const { query, block, topic, hasHtml, limit, offset } = req.query;
     
     // Convertir a números si existen
     const blockNum = block ? Number(block) : 0;
     const topicNum = topic ? Number(topic) : 0;
+    const limitNum = limit ? Number(limit) : null;
+    const offsetNum = offset ? Number(offset) : 0;
     
     // Si hay algún parámetro de búsqueda, usar el servicio de búsqueda
     if (query || blockNum || topicNum || hasHtml !== undefined) {
@@ -22,13 +24,26 @@ router.get('/', async (req, res, next) => {
         query || '', 
         blockNum, 
         topicNum,
-        hasHtml || null // Pasar null si no está definido
+        hasHtml || null
       );
       res.json(result);
     } else {
-      // Si no hay parámetros, devolver todas las preguntas
-      const allQuestions = await questionService.getAllQuestions();
-      res.json(allQuestions);
+      // Si no hay parámetros de búsqueda, usar paginación
+      if (limitNum) {
+        const questions = await questionService.getAllQuestions(limitNum, offsetNum);
+        const total = await questionService.getQuestionsCount();
+        res.json({
+          questions,
+          total,
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: (offsetNum + questions.length) < total
+        });
+      } else {
+        // Comportamiento legacy: devolver todas las preguntas
+        const allQuestions = await questionService.getAllQuestions();
+        res.json(allQuestions);
+      }
     }
   } catch (error) {
     console.error('Error en búsqueda:', error);

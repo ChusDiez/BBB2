@@ -1,0 +1,101 @@
+/* Estilos para la tabla virtualizada */
+.virtualized-table-container {
+  background: white;
+  border-radius: 0.375rem;
+  border: 1px solid #dee2e6;
+  overflow: hidden;
+}
+
+.table-header {
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  background: #f8f9fa !important;
+}
+
+.virtualized-table-container .table-header strong {
+  color: #495057;
+  font-size: 0.875rem;
+}
+
+/* Mejorar el aspecto de las filas virtualizadas */
+.virtualized-table-container [data-testid="FixedSizeList"] {
+  border: none !important;
+}
+
+/* Hover effect para las filas */
+.virtualized-table-container > div > div > div:hover {
+  background-color: #f8f9fa;
+}
+
+/* Estilos para las filas seleccionadas */
+.virtualized-table-container .row-selected {
+  background-color: #e3f2fd !important;
+}
+
+/* Estilos para los badges en la tabla virtualizada */
+.virtualized-table-container .badge {
+  font-size: 0.75rem;
+}
+
+/* Mejorar el espaciado de los botones de acción */
+.virtualized-table-container .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Estilos para el preview expandido */
+.virtualized-table-container .preview-expanded {
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+  }
+}
+
+/* Indicador de carga para más elementos */
+.virtualized-table-container .loading-more {
+  border-top: 1px solid #dee2e6;
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .virtualized-table-container .table-header,
+  .virtualized-table-container .d-flex {
+    font-size: 0.8rem;
+  }
+  
+  .virtualized-table-container .btn-sm {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+  }
+}
+
+/* Scrollbar personalizado para la tabla virtualizada */
+.virtualized-table-container [data-testid="FixedSizeList"]::-webkit-scrollbar {
+  width: 8px;
+}
+
+.virtualized-table-container [data-testid="FixedSizeList"]::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.virtualized-table-container [data-testid="FixedSizeList"]::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.virtualized-table-container [data-testid="FixedSizeList"]::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

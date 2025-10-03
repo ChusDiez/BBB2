@@ -79,6 +79,12 @@ const slice = createSlice({
     setQuestions(state, action: PayloadAction<Array<Question>>) {
       state.questions = action.payload;
     },
+    addQuestions(state, action: PayloadAction<Array<Question>>) {
+      // Agregar nuevas preguntas al final, evitando duplicados
+      const existingIds = new Set(state.questions.map(q => q.id));
+      const newQuestions = action.payload.filter(q => !existingIds.has(q.id));
+      state.questions = [...state.questions, ...newQuestions];
+    },
   },
 });
 
@@ -88,5 +94,6 @@ export const {
   setExamStats,
   setHistoric,
   setQuestions,
+  addQuestions,
 } = slice.actions;
 export default slice.reducer;
