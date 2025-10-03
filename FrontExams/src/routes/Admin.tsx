@@ -7,6 +7,7 @@ import useCategories from '../hooks/useCategories';
 import EnrichmentAPI from '../apis/EnrichmentAPI';
 import { Question } from '../store/slice';
 import VirtualizedQuestionTable from '../components/VirtualizedQuestionTable';
+import SearchBar from '../components/SearchBar/SearchBar';
 
 export default function Admin() {
   const {
@@ -15,9 +16,11 @@ export default function Admin() {
     isLoadingMore,
     hasNextPage,
     totalQuestions,
+    isSearchMode,
     deleteQuestion,
     searchParams,
     loadMoreQuestions,
+    callback,
   } = useQuestions();
   const { categories } = useCategories();
   const { openModal } = useModalContext();
@@ -138,6 +141,11 @@ export default function Admin() {
     withoutFeedback: questions.filter(q => !q.feedback).length
   };
 
+  // Manejar búsqueda
+  const handleSearch = useCallback(async (params: Record<string, string>) => {
+    await callback(params);
+  }, [callback]);
+
   if (isLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
@@ -165,9 +173,15 @@ export default function Admin() {
               <div className="d-flex gap-4 small text-muted">
                 <span>
                   <i className="bi bi-database me-1"></i>
-                  Total: <strong>{stats.total}</strong> 
-                  {stats.loaded !== stats.total && (
-                    <span className="text-primary"> (cargadas: {stats.loaded})</span>
+                  {isSearchMode ? (
+                    <>Resultados: <strong>{stats.total}</strong></>
+                  ) : (
+                    <>
+                      Total: <strong>{stats.total}</strong> 
+                      {stats.loaded !== stats.total && (
+                        <span className="text-primary"> (cargadas: {stats.loaded})</span>
+                      )}
+                    </>
                   )}
                 </span>
                 <span>
@@ -182,6 +196,12 @@ export default function Admin() {
                   <i className="bi bi-dash-circle text-muted me-1"></i>
                   Sin feedback: <strong>{stats.withoutFeedback}</strong>
                 </span>
+                {isSearchMode && (
+                  <span className="text-primary">
+                    <i className="bi bi-search me-1"></i>
+                    <strong>Modo búsqueda activo</strong>
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -239,6 +259,9 @@ export default function Admin() {
           </div>
         </div>
       </div>
+      
+      {/* NUEVA: Barra de búsqueda avanzada */}
+      <SearchBar onSearch={handleSearch} />
       
       {/* NUEVO: Filtros locales simples */}
       <div className="mb-3 d-flex gap-3 bg-light p-3 rounded">
@@ -306,10 +329,17 @@ export default function Admin() {
               </button>
             </div>
             
-            {hasNextPage && (
+            {hasNextPage && !isSearchMode && (
               <div className="text-muted small">
                 <i className="bi bi-info-circle me-1"></i>
                 Scroll hacia abajo para cargar más preguntas automáticamente
+              </div>
+            )}
+            
+            {isSearchMode && (
+              <div className="text-primary small">
+                <i className="bi bi-search me-1"></i>
+                Mostrando todos los resultados de búsqueda (virtualizados)
               </div>
             )}
           </div>

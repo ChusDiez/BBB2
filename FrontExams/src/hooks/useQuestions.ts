@@ -20,6 +20,7 @@ export default function useQuestions() {
   const [hasNextPage, setHasNextPage] = useState(true);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [currentOffset, setCurrentOffset] = useState(0);
+  const [isSearchMode, setIsSearchMode] = useState(false);
   const questions = useAppSelector(getQuestions);
   const dispatch = useAppDispatch();
   const location = useLocation();
@@ -37,9 +38,9 @@ export default function useQuestions() {
     }
   }, [dispatch]);
 
-  // Función para cargar más preguntas (lazy loading)
+  // Función para cargar más preguntas (lazy loading) - solo en modo navegación
   const loadMoreQuestions = useCallback(async () => {
-    if (loadingRef.current || !hasNextPage || isLoadingMore) {
+    if (loadingRef.current || !hasNextPage || isLoadingMore || isSearchMode) {
       return;
     }
 
@@ -76,28 +77,36 @@ export default function useQuestions() {
       setIsLoadingMore(false);
       loadingRef.current = false;
     }
-  }, [searchParams, currentOffset, hasNextPage, isLoadingMore, dispatch]);
+  }, [searchParams, currentOffset, hasNextPage, isLoadingMore, isSearchMode, dispatch]);
 
-  // Función de búsqueda que reinicia la carga
+  // Función de búsqueda híbrida
   const callback = useCallback(async (queryParams: Record<string, string>) => {
     try {
       setIsLoading(true);
       setSearchParams(queryParams);
-      setCurrentOffset(0);
-      setHasNextPage(true);
       
       if (!location.pathname.includes('admin')) {
         navigate('/admin', { replace: true });
       }
 
-      // Si hay parámetros de búsqueda, cargar todos los resultados de una vez
-      if (Object.keys(queryParams).length > 0) {
-        const { data } = await AdminAPI.getQuestions(queryParams);
-        dispatch(setQuestions(data as Question[]));
+      const hasSearchParams = Object.keys(queryParams).length > 0;
+      setIsSearchMode(hasSearchParams);
+
+      if (hasSearchParams) {
+        // Modo búsqueda: cargar todos los resultados de una vez (pero virtualizados)
+        setCurrentOffset(0);
         setHasNextPage(false);
-        setCurrentOffset(Array.isArray(data) ? data.length : (data.questions?.length || 0));
+        
+        const { data } = await AdminAPI.getQuestions(queryParams);
+        const results = Array.isArray(data) ? data : data.questions || [];
+        dispatch(setQuestions(results));
+        setCurrentOffset(results.length);
+        setTotalQuestions(results.length);
       } else {
-        // Si no hay búsqueda, cargar por lotes
+        // Modo navegación: carga lazy por lotes
+        setCurrentOffset(0);
+        setHasNextPage(true);
+        
         const initialParams = {
           ...queryParams,
           limit: INITIAL_LOAD_SIZE.toString(),
@@ -128,6 +137,16 @@ export default function useQuestions() {
       setIsLoading(false);
     }
   }, [dispatch, location.pathname, navigate]);
+
+  // Escuchar evento para resetear a modo lazy
+  useEffect(() => {
+    const handleResetToLazy = () => {
+      callback({});
+    };
+
+    window.addEventListener('resetToLazyMode', handleResetToLazy);
+    return () => window.removeEventListener('resetToLazyMode', handleResetToLazy);
+  }, [callback]);
 
   // Carga inicial
   useEffect(() => {
@@ -176,6 +195,7 @@ export default function useQuestions() {
     isLoadingMore,
     hasNextPage,
     totalQuestions,
+    isSearchMode,
     deleteQuestion,
     callback,
     searchParams,
