@@ -81,12 +81,16 @@ export default function useQuestions() {
   }, [searchParams, currentOffset, hasNextPage, isLoadingMore, isSearchMode, dispatch]);
 
   // Función de búsqueda híbrida
-  const callback = useCallback(async (queryParams: Record<string, string>) => {
+  const callback = useCallback(async (
+    queryParams: Record<string, string>,
+    options: { silent?: boolean } = {}
+  ) => {
     const currentRequest = latestSearchRef.current + 1;
     latestSearchRef.current = currentRequest;
+    const isSilent = Boolean(options.silent);
 
     try {
-      setIsLoading(true);
+      setIsLoading(!isSilent);
       setSearchParams(queryParams);
       
       if (!location.pathname.includes('admin')) {
@@ -146,7 +150,7 @@ export default function useQuestions() {
         setHasNextPage(false);
       }
     } finally {
-      if (latestSearchRef.current === currentRequest) {
+      if (!isSilent && latestSearchRef.current === currentRequest) {
         setIsLoading(false);
       }
     }

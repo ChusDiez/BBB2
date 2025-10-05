@@ -3,8 +3,12 @@ import useCategories from '../../hooks/useCategories';
 import useQuestions from '../../hooks/useQuestions';
 import '../../styles/SearchBar.css';
 
+interface SearchOptions {
+  silent?: boolean;
+}
+
 interface SearchBarProps {
-  onSearch?: (params: Record<string, string>) => void;
+  onSearch?: (params: Record<string, string>, options?: SearchOptions) => void;
   className?: string;
 }
 
@@ -43,7 +47,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
   }, [query, selectedBlock, selectedTopic, hasHtml]);
 
   // Ejecutar búsqueda
-  const runSearch = useCallback(async (params: Record<string, string>) => {
+  const runSearch = useCallback(async (
+    params: Record<string, string>,
+    options: SearchOptions = {}
+  ) => {
     if (!onSearch) {
       return;
     }
@@ -53,7 +60,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
     setIsSearching(true);
 
     try {
-      await onSearch(params);
+      await onSearch(params, options);
     } catch (error) {
       console.error('Error al ejecutar la búsqueda:', error);
     } finally {
@@ -87,7 +94,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
       debounceTimeoutRef.current = null;
     }
 
-    void runSearch({});
+    void runSearch({}, { silent: true });
   }, [runSearch]);
 
   // Búsqueda al presionar Enter
@@ -128,7 +135,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
 
     debounceTimeoutRef.current = setTimeout(() => {
       hadActiveParamsRef.current = hasParams;
-      void runSearch(hasParams ? params : {});
+      void runSearch(hasParams ? params : {}, { silent: true });
     }, 350);
 
     return () => {

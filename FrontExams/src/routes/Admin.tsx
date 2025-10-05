@@ -142,8 +142,11 @@ export default function Admin() {
   };
 
   // Manejar búsqueda
-  const handleSearch = useCallback(async (params: Record<string, string>) => {
-    await callback(params);
+  const handleSearch = useCallback(async (
+    params: Record<string, string>,
+    options?: { silent?: boolean }
+  ) => {
+    await callback(params, options);
   }, [callback]);
 
   if (isLoading) {
