@@ -26,6 +26,7 @@ export default function useQuestions() {
   const location = useLocation();
   const navigate = useNavigate();
   const loadingRef = useRef(false);
+  const latestSearchRef = useRef(0);
 
   const deleteQuestion = useCallback(async (id: number) => {
     try {
@@ -81,6 +82,9 @@ export default function useQuestions() {
 
   // Función de búsqueda híbrida
   const callback = useCallback(async (queryParams: Record<string, string>) => {
+    const currentRequest = latestSearchRef.current + 1;
+    latestSearchRef.current = currentRequest;
+
     try {
       setIsLoading(true);
       setSearchParams(queryParams);
@@ -98,6 +102,9 @@ export default function useQuestions() {
         setHasNextPage(false);
         
         const { data } = await AdminAPI.getQuestions(queryParams);
+        if (latestSearchRef.current !== currentRequest) {
+          return;
+        }
         const results = Array.isArray(data) ? data : data.questions || [];
         dispatch(setQuestions(results));
         setCurrentOffset(results.length);
@@ -114,6 +121,9 @@ export default function useQuestions() {
         };
         
         const { data } = await AdminAPI.getQuestions(initialParams);
+        if (latestSearchRef.current !== currentRequest) {
+          return;
+        }
         
         if (Array.isArray(data)) {
           dispatch(setQuestions(data as Question[]));
@@ -131,10 +141,14 @@ export default function useQuestions() {
       }
     } catch (error) {
       console.error('Error al buscar preguntas:', error);
-      dispatch(setQuestions([]));
-      setHasNextPage(false);
+      if (latestSearchRef.current === currentRequest) {
+        dispatch(setQuestions([]));
+        setHasNextPage(false);
+      }
     } finally {
-      setIsLoading(false);
+      if (latestSearchRef.current === currentRequest) {
+        setIsLoading(false);
+      }
     }
   }, [dispatch, location.pathname, navigate]);
 

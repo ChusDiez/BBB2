@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import useCategories from '../../hooks/useCategories';
 import useQuestions from '../../hooks/useQuestions';
 import '../../styles/SearchBar.css';
@@ -15,10 +14,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
   const [selectedTopic, setSelectedTopic] = useState('0');
   const [hasHtml, setHasHtml] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRequestRef = useRef(0);
+  const hasMountedRef = useRef(false);
+  const hadActiveParamsRef = useRef(false);
   
   const { categories } = useCategories();
   const { searchParams } = useQuestions();
-  const location = useLocation();
 
   // Sincronizar con parámetros existentes
   useEffect(() => {
@@ -41,35 +43,52 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
   }, [query, selectedBlock, selectedTopic, hasHtml]);
 
   // Ejecutar búsqueda
-  const handleSearch = useCallback(async () => {
-    const params = prepareSearchParams();
-    setIsSearching(true);
-    
-    try {
-      if (onSearch) {
-        await onSearch(params);
-      }
-    } finally {
-      setIsSearching(false);
+  const runSearch = useCallback(async (params: Record<string, string>) => {
+    if (!onSearch) {
+      return;
     }
-  }, [prepareSearchParams, onSearch]);
+
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
+    setIsSearching(true);
+
+    try {
+      await onSearch(params);
+    } catch (error) {
+      console.error('Error al ejecutar la búsqueda:', error);
+    } finally {
+      if (latestRequestRef.current === requestId) {
+        setIsSearching(false);
+      }
+    }
+  }, [onSearch]);
+
+  const handleSearch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+
+    const params = prepareSearchParams();
+    hadActiveParamsRef.current = Object.keys(params).length > 0;
+    void runSearch(params);
+  }, [prepareSearchParams, runSearch]);
 
   // Limpiar búsqueda
-  const handleClear = useCallback(async () => {
+  const handleClear = useCallback(() => {
     setQuery('');
     setSelectedBlock('0');
     setSelectedTopic('0');
     setHasHtml('');
-    setIsSearching(true);
-    
-    try {
-      if (onSearch) {
-        await onSearch({});
-      }
-    } finally {
-      setIsSearching(false);
+    hadActiveParamsRef.current = false;
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
     }
-  }, [onSearch]);
+
+    void runSearch({});
+  }, [runSearch]);
 
   // Búsqueda al presionar Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -88,6 +107,37 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
 
   // Verificar si hay parámetros de búsqueda activos
   const hasActiveSearch = Object.keys(prepareSearchParams()).length > 0;
+
+  // Ejecutar búsqueda dinámica con debounce
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    const params = prepareSearchParams();
+    const hasParams = Object.keys(params).length > 0;
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    if (!hasParams && !hadActiveParamsRef.current) {
+      return;
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      hadActiveParamsRef.current = hasParams;
+      void runSearch(hasParams ? params : {});
+    }, 350);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+    };
+  }, [prepareSearchParams, runSearch]);
 
   return (
     <div className={`search-bar bg-white border rounded p-3 mb-3 ${className}`}>
@@ -109,7 +159,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isSearching}
             />
             {query && (
               <button
@@ -139,7 +188,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
                 setSelectedTopic('0'); // Reset topic when block changes
               }
             }}
-            disabled={isSearching}
           >
             <option value="0">Todos los bloques</option>
             {uniqueBlocks.map(block => (
@@ -160,7 +208,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
             className="form-select"
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
-            disabled={isSearching}
           >
             <option value="0">Todos los temas</option>
             {filteredTopics.map(category => (
@@ -181,7 +228,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
             className="form-select"
             value={hasHtml}
             onChange={(e) => setHasHtml(e.target.value)}
-            disabled={isSearching}
           >
             <option value="">Todos</option>
             <option value="true">Con HTML</option>
@@ -196,7 +242,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
             <button
               className="btn btn-primary flex-grow-1"
               onClick={handleSearch}
-              disabled={isSearching}
               title="Buscar en todas las preguntas"
             >
               {isSearching ? (
@@ -216,7 +261,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, className = '' }
               <button
                 className="btn btn-outline-secondary"
                 onClick={handleClear}
-                disabled={isSearching}
                 title="Limpiar filtros y volver a navegación"
               >
                 <i className="bi bi-arrow-clockwise"></i>

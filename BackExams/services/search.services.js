@@ -8,14 +8,20 @@ class SearchService {
         
     // Si hay query de texto, crear condición OR para buscar en todos los campos
     if (query && query.trim() !== '') {
-      whereConditions.push({
-        [Op.or]: [
-          { question: { [Op.like]: `%${query}%` } },
-          { optionA: { [Op.like]: `%${query}%` } },
-          { optionB: { [Op.like]: `%${query}%` } },
-          { optionC: { [Op.like]: `%${query}%` } },
-          { feedback: { [Op.like]: `%${query}%` } }
-        ]
+      const tokens = query
+        .trim()
+        .split(/[\s,;]+/)
+        .filter(Boolean);
+
+      const likeableColumns = ['question', 'optionA', 'optionB', 'optionC', 'feedback'];
+
+      tokens.forEach((token) => {
+        const likePattern = `%${token}%`;
+        whereConditions.push({
+          [Op.or]: likeableColumns.map((column) => ({
+            [column]: { [Op.like]: likePattern }
+          }))
+        });
       });
     }
     
