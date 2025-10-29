@@ -29,6 +29,7 @@ export default function AdvancedUpload() {
     
     // RF Exam
     rfExamName: '',
+    rfPromocionId: 5, // Por defecto Promoción 43
     rfStartDate: '',
     rfStartTime: '09:00',
     rfEndDate: '',
@@ -49,6 +50,7 @@ export default function AdvancedUpload() {
     
     // IMP Exam
     impThemeNumber: '',
+    impVariant: 1, // Por defecto IMP1 (40 preguntas)
     impThemeName: '',
     impWindowStartDate: '',
     impAutoRelease: true,
@@ -75,18 +77,18 @@ export default function AdvancedUpload() {
     }));
   };
 
-  // Mantener nombre IMP sincronizado con el número (X_IMP)
+  // Mantener nombre IMP sincronizado con el número y variante (X_IMP1 o X_IMP2)
   useEffect(() => {
     if (formData.uploadType === 'imp_exam') {
       const n = parseInt(formData.impThemeNumber || '');
       if (!isNaN(n) && n >= 1 && n <= 45) {
-        setFormData(prev => ({ ...prev, impThemeName: `${n}_IMP` }));
+        setFormData(prev => ({ ...prev, impThemeName: `${n}_IMP${formData.impVariant}` }));
       } else if (!formData.impThemeNumber) {
         setFormData(prev => ({ ...prev, impThemeName: '' }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.impThemeNumber, formData.uploadType]);
+  }, [formData.impThemeNumber, formData.impVariant, formData.uploadType]);
 
   // Manejar archivo
   const handleFileChange = (fileItems: any[]) => {
@@ -199,20 +201,53 @@ export default function AdvancedUpload() {
   const renderRFExamFields = () => {
     if (formData.uploadType !== 'rf_exam') return null;
     
+    // Helper para generar placeholder según la promoción
+    const getRFPlaceholder = () => {
+      return formData.rfPromocionId === 5 
+        ? "Ej: 43-01 (para RF 43-01 de Promoción 43)" 
+        : "Ej: RF19 (para RF 19 de Promoción 42)";
+    };
+
+    const getRFDescription = () => {
+      if (formData.rfPromocionId === 5) {
+        return "Formato nuevo: 43-01, 43-02, 43-03... (se convertirá a RF30, RF31, RF32... internamente)";
+      } else {
+        return "Formato clásico: RF1, RF2, RF3...";
+      }
+    };
+    
     return (
       <div className="mb-4">
         <h6 className="fw-semibold mb-3">⚙️ Configuración Examen RF</h6>
         <div className="row g-3">
-          <div className="col-12">
+          <div className="col-md-6">
+            <label className="form-label">Promoción</label>
+            <select
+              className="form-select"
+              value={formData.rfPromocionId}
+              onChange={(e) => handleInputChange('rfPromocionId', parseInt(e.target.value))}
+            >
+              <option value={4}>Promoción 42 (2024)</option>
+              <option value={5}>Promoción 43 (2026)</option>
+            </select>
+            <div className="form-text small">
+              {formData.rfPromocionId === 5 
+                ? "🆕 Formato nuevo: usa nombres como 43-01, 43-02..." 
+                : "📋 Formato clásico: RF1, RF2, RF3..."}
+            </div>
+          </div>
+
+          <div className="col-md-6">
             <label className="form-label">Nombre del examen</label>
             <input
               type="text"
               className="form-control"
               value={formData.rfExamName}
               onChange={(e) => handleInputChange('rfExamName', e.target.value)}
-              placeholder="Ej: RF19 - Weekly Simulation"
+              placeholder={getRFPlaceholder()}
               required
             />
+            <div className="form-text small">{getRFDescription()}</div>
           </div>
           
           <div className="col-md-6">
@@ -348,18 +383,25 @@ export default function AdvancedUpload() {
               required
             />
           </div>
+          
           <div className="col-md-4">
-            <label className="form-label">Nombre del tema</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.impThemeName}
-              onChange={(e) => handleInputChange('impThemeName', e.target.value)}
-              placeholder="Ej: 1_IMP"
+            <label className="form-label">Variante IMP</label>
+            <select
+              className="form-select"
+              value={formData.impVariant}
+              onChange={(e) => handleInputChange('impVariant', parseInt(e.target.value) as 1 | 2)}
               required
-            />
-            <div className="form-text">Formato exacto: X_IMP</div>
+            >
+              <option value={1}>IMP1 - 40 preguntas (completo)</option>
+              <option value={2}>IMP2 - 20 preguntas (reducido)</option>
+            </select>
+            <div className="form-text small">
+              {formData.impVariant === 1 
+                ? "📋 IMP1: Examen completo de 40 preguntas" 
+                : "⚡ IMP2: Examen reducido de 20 preguntas"}
+            </div>
           </div>
+          
           <div className="col-md-4">
             <label className="form-label">Fecha de inicio</label>
             <input
@@ -371,6 +413,21 @@ export default function AdvancedUpload() {
               required
             />
           </div>
+          
+          {/* Nombre generado automáticamente */}
+          {formData.impThemeNumber && (
+            <div className="col-12">
+              <div className="alert alert-info mb-0">
+                <strong>📝 Nombre generado:</strong> {formData.impThemeName}
+                <br />
+                <small>
+                  El archivo CSV debe contener exactamente{' '}
+                  <strong>{formData.impVariant === 1 ? '40' : '20'} preguntas</strong>
+                </small>
+              </div>
+            </div>
+          )}
+          
           <div className="col-12">
             <div className="form-check mt-2">
               <input

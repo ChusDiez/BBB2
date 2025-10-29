@@ -87,6 +87,7 @@ router.post('/rf-exam', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOAD
     // Parsear campos del formulario
     const rfOptions = {
       examName: fields.examName?.[0],
+      promocionId: fields.promocionId?.[0] ? parseInt(fields.promocionId[0]) : 4, // Default Promo 42
       startDate: fields.startDate?.[0] ? new Date(fields.startDate[0]) : null,
       endDate: fields.endDate?.[0] ? new Date(fields.endDate[0]) : null,
       globalReleaseDate: fields.globalReleaseDate?.[0] ? new Date(fields.globalReleaseDate[0]) : null,
@@ -146,6 +147,7 @@ router.post('/imp-exam', ipAllowlist, originAllowlist, (process.env.SECURE_UPLOA
     const impOptions = {
       themeNumber: fields.themeNumber?.[0] ? parseInt(fields.themeNumber[0]) : null,
       themeName: fields.themeName?.[0],
+      impVariant: fields.impVariant?.[0] ? parseInt(fields.impVariant[0]) : 1, // Default IMP1
       windowStartDate: fields.windowStartDate?.[0] || null,
       autoRelease: fields.autoRelease?.[0] === 'true',
       immediatelyAvailable: fields.immediatelyAvailable?.[0] === 'true',

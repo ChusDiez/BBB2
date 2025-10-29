@@ -11,15 +11,22 @@ const ImpAvailability = pool.define('imp_availability_control', {
   theme_number: {
     type: Sequelize.INTEGER,
     allowNull: false,
-    unique: true,
     validate: { min: 1, max: 45 },
   },
   theme_name: {
     type: Sequelize.STRING(10),
     allowNull: false,
-    unique: true,
-    comment: 'Formato X_IMP',
-    validate: { is: /^\d+_IMP$/ },
+    comment: 'Formato X_IMP1 o X_IMP2',
+    validate: { is: /^\d+_IMP[12]$/ },
+  },
+  imp_variant: {
+    type: Sequelize.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+    validate: {
+      isIn: [[1, 2]],
+    },
+    comment: 'Variante del IMP: 1 (40 preguntas) o 2 (20 preguntas)',
   },
   historic_id: {
     type: Sequelize.INTEGER,
@@ -80,6 +87,13 @@ const ImpAvailability = pool.define('imp_availability_control', {
   tableName: 'imp_availability_control',
   freezeTableName: true,
   timestamps: false,
+  indexes: [
+    {
+      unique: true,
+      fields: ['theme_number', 'imp_variant'],
+      name: 'imp_availability_control_theme_variant_unique',
+    },
+  ],
 });
 
 export default ImpAvailability;

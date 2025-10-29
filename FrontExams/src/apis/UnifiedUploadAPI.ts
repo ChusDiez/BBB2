@@ -51,6 +51,7 @@ export default class UnifiedUploadAPI {
     
     if (options.rfWindow) {
       formData.append('examName', options.rfWindow.examName);
+      formData.append('promocionId', String(options.rfWindow.promocionId));
       formData.append('startDate', options.rfWindow.startDate);
       // Solo añadir endDate si no está vacío (para auto-liberación)
       if (options.rfWindow.endDate) {
@@ -127,6 +128,7 @@ export default class UnifiedUploadAPI {
     formData.append('csvFile', file);
     formData.append('themeNumber', String(options.themeNumber));
     formData.append('themeName', options.themeName);
+    formData.append('impVariant', String(options.impVariant)); // 🆕 NUEVO
     formData.append('windowStartDate', options.windowStartDate);
     formData.append('autoRelease', String(options.autoRelease));
     formData.append('immediatelyAvailable', String(options.immediatelyAvailable || true));

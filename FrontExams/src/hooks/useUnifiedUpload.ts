@@ -39,8 +39,24 @@ export default function useUnifiedUpload() {
           break;
 
         case 'rf_exam':
+          // Convertir nombre del RF según la promoción
+          let convertedRFName = formData.rfExamName.trim();
+          
+          if (formData.rfPromocionId === 5) {
+            // Promoción 43: convertir "43-01" a "RF30"
+            const match = convertedRFName.match(/^43-(\d{2})$/);
+            if (match) {
+              const rfIndex = parseInt(match[1]);
+              convertedRFName = `RF${29 + rfIndex}`;
+            }
+          } else if (formData.rfPromocionId === 4) {
+            // Promoción 42: asegurar formato "RFX"
+            convertedRFName = convertedRFName.replace(/^RF\s*/i, 'RF');
+          }
+
           options.rfWindow = {
-            examName: formData.rfExamName,
+            examName: convertedRFName,
+            promocionId: formData.rfPromocionId,
             startDate: formatDateTime(formData.rfStartDate, formData.rfStartTime),
             endDate: formData.rfUseAutoRelease ? '' : formatDateTime(formData.rfEndDate, formData.rfEndTime),
           };
@@ -83,6 +99,7 @@ export default function useUnifiedUpload() {
           result = await UnifiedUploadAPI.uploadImpExam(formData.file, {
             themeNumber,
             themeName: formData.impThemeName,
+            impVariant: formData.impVariant, // 🆕 NUEVO: Incluir variante IMP
             windowStartDate: windowStartISO,
             autoRelease: formData.impAutoRelease,
             immediatelyAvailable: formData.immediatelyAvailable,

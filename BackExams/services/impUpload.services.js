@@ -98,19 +98,38 @@ class ImpUploadService {
     return validationErrors;
   }
 
-  validateImpMetadata({ themeNumber, themeName }) {
+  validateImpMetadata({ themeNumber, themeName, impVariant = 1 }) {
     const errors = [];
+    
+    // Validar número de tema
     if (!themeNumber || themeNumber < 1 || themeNumber > 45) {
       errors.push('Número de tema inválido (1-45)');
     }
-    if (!/^\d+_IMP$/.test(themeName || '')) {
-      errors.push('Formato de nombre incorrecto. Debe ser "X_IMP"');
+    
+    // Validar variante IMP
+    if (![1, 2].includes(impVariant)) {
+      errors.push('Variante IMP inválida (debe ser 1 o 2)');
+    }
+    
+    // Validar formato de nombre: "X_IMP1" o "X_IMP2"
+    if (!/^\d+_IMP[12]$/.test(themeName || '')) {
+      errors.push('Formato de nombre incorrecto. Debe ser "X_IMP1" o "X_IMP2"');
     } else {
-      const numberFromName = parseInt(String(themeName).split('_')[0]);
-      if (numberFromName !== themeNumber) {
-        errors.push('El número del tema no coincide con el nombre');
+      const matches = String(themeName).match(/^(\d+)_IMP([12])$/);
+      if (matches) {
+        const numberFromName = parseInt(matches[1]);
+        const variantFromName = parseInt(matches[2]);
+        
+        if (numberFromName !== themeNumber) {
+          errors.push('El número del tema no coincide con el nombre');
+        }
+        
+        if (variantFromName !== impVariant) {
+          errors.push('La variante del tema no coincide con el nombre');
+        }
       }
     }
+    
     return errors;
   }
 
@@ -125,13 +144,14 @@ class ImpUploadService {
     const {
       themeNumber,
       themeName,
+      impVariant = 1,
       windowStartDate,
       autoRelease = true,
       immediatelyAvailable = true,
     } = impOptions || {};
 
     // Validación de metadatos IMP
-    const metaErrors = this.validateImpMetadata({ themeNumber, themeName });
+    const metaErrors = this.validateImpMetadata({ themeNumber, themeName, impVariant });
     if (metaErrors.length > 0) {
       throw new Error(metaErrors.join(' | '));
     }
@@ -141,8 +161,13 @@ class ImpUploadService {
     if (!csvData || csvData.length === 0) {
       throw new Error('El archivo CSV está vacío o no tiene el formato correcto');
     }
-    if (csvData.length !== 40) {
-      throw new Error(`Debe tener exactamente 40 preguntas (actual: ${csvData.length})`);
+    
+    // Validación flexible: 40 para IMP1, 20 para IMP2
+    const expectedQuestions = impVariant === 1 ? 40 : 20;
+    if (csvData.length !== expectedQuestions) {
+      throw new Error(
+        `IMP${impVariant} debe tener exactamente ${expectedQuestions} preguntas (actual: ${csvData.length})`
+      );
     }
 
     // Validación detallada
@@ -159,7 +184,7 @@ class ImpUploadService {
 
     // Crear historic (tipo IMP)
     const historicIdExam = await historicService.addRecord(
-      themeName, // "X_IMP"
+      themeName, // "X_IMP1" o "X_IMP2"
       questions,
       'Tema',
       'IMP'
@@ -171,12 +196,13 @@ class ImpUploadService {
       theme_number: themeNumber,
       theme_name: themeName,
       historic_id: historicIdExam,
+      imp_variant: impVariant,
       status: 'active',
       window_start_date: windowStartDate ? new Date(windowStartDate) : null,
       global_release_date: releaseDate ? new Date(releaseDate) : null,
       immediately_available: !!immediatelyAvailable,
       auto_release: !!autoRelease,
-      total_questions: 40,
+      total_questions: expectedQuestions,
     });
 
     // Inicializar monitor IMP
@@ -193,8 +219,9 @@ class ImpUploadService {
       success: true,
       historic_id: historicIdExam,
       theme_name: themeName,
-      total_questions: 40,
-      message: `IMP "${themeName}" subido correctamente con 40 preguntas`,
+      imp_variant: impVariant,
+      total_questions: expectedQuestions,
+      message: `IMP "${themeName}" subido correctamente con ${expectedQuestions} preguntas`,
     };
   }
 }

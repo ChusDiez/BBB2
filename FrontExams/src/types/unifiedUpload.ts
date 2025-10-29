@@ -4,6 +4,7 @@ export type UploadType = 'direct' | 'rf_exam' | 'future_questions' | 'custom_exa
 
 export interface RFWindow {
   examName: string;
+  promocionId: number;
   startDate: string;
   endDate: string;
 }
@@ -31,6 +32,7 @@ export interface UnifiedUploadOptions {
 export interface ImpUploadOptions {
   themeNumber: number;
   themeName: string;
+  impVariant: 1 | 2;  // 🆕 NUEVO: 1 = IMP1 (40 preguntas), 2 = IMP2 (20 preguntas)
   windowStartDate: string; // ISO string
   autoRelease: boolean;
   immediatelyAvailable?: boolean;
@@ -67,6 +69,7 @@ export interface UnifiedUploadFormData {
   
   // RF Exam fields
   rfExamName: string;
+  rfPromocionId: number;  // ID de la promoción (4=Promo42, 5=Promo43)
   rfStartDate: string;
   rfStartTime: string;
   rfEndDate: string;
@@ -87,6 +90,7 @@ export interface UnifiedUploadFormData {
   
   // IMP Exam fields
   impThemeNumber: string; // use string for inputs, convert before send
+  impVariant: 1 | 2;  // 🆕 NUEVO: 1 = IMP1 (40 preguntas), 2 = IMP2 (20 preguntas)
   impThemeName: string;
   impWindowStartDate: string;
   impAutoRelease: boolean;

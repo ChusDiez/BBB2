@@ -4,6 +4,7 @@ import fs from 'fs';
 import Questions from '../models/questions.model.js';
 import Historic from '../models/historicExams.model.js';
 import SpecificExam from '../models/specificExams.model.js';
+import RFAvailability from '../models/rfAvailability.model.js';
 import mapHeader from '../config/headers.js';
 import QuestionService from './questions.services.js';
 import HistoricService from './historic.services.js';
@@ -336,7 +337,7 @@ class UnifiedUploadService {
   }
 
   /**
-   * Crea registro en specific_exams
+   * Crea registro en specific_exams o rf_availability_control según corresponda
    */
   async createSpecificExamRecord(historicId, uploadOptions, totalQuestions) {
     const baseData = {
@@ -347,16 +348,21 @@ class UnifiedUploadService {
 
     switch (uploadOptions.uploadType) {
       case 'rf_exam':
-        return await SpecificExam.create({
-          ...baseData,
-          exam_name: uploadOptions.rfWindow?.examName || `RF_${Date.now()}`,
-          exam_type: 'rf',
-          status: 'active',
-          window_start_date: uploadOptions.rfWindow?.startDate || null,
-          window_end_date: uploadOptions.rfWindow?.endDate || null,
+        // Para RFs, usar rf_availability_control
+        const rfData = {
+          historic_id: historicId,
+          rf_name: uploadOptions.rfWindow?.examName || `RF_${Date.now()}`,
+          promocion_id: uploadOptions.rfWindow?.promocionId || 4,
+          status: 'draft', // Siempre empezar como draft
+          specific_window_start: uploadOptions.rfWindow?.startDate || null,
+          specific_window_end: uploadOptions.rfWindow?.endDate || null,
           global_release_date: uploadOptions.globalRelease?.releaseDate || null,
-          auto_release: uploadOptions.globalRelease?.autoRelease || false,
-        });
+          event_active: false,
+          // display_name se calcula automáticamente por el trigger en la base de datos
+        };
+        
+        console.log(`🎯 Creando RF en rf_availability_control:`, rfData);
+        return await RFAvailability.create(rfData);
 
       case 'future_questions':
         return await SpecificExam.create({
@@ -427,7 +433,8 @@ class UnifiedUploadService {
       rfWindow: {
         startDate: rfOptions.startDate,
         endDate: rfOptions.endDate,
-        examName: rfOptions.examName
+        examName: rfOptions.examName,
+        promocionId: rfOptions.promocionId || 4  // Default Promo 42
       },
       globalRelease: {
         releaseDate: rfOptions.globalReleaseDate,
