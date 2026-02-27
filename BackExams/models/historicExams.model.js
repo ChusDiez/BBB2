@@ -12,7 +12,11 @@ const Historic = pool.define('historics', {
     type: Sequelize.TEXT,
     allowNull: false,
     get() {
-      return this.getDataValue('questions').split(',');
+      let raw = this.getDataValue('questions');
+      if (raw.startsWith('[')) {
+        raw = raw.replace(/^\[|\]$/g, '');
+      }
+      return raw.split(',').map(q => q.trim());
     },
     set(val) {
       this.setDataValue('questions', val.join(','));

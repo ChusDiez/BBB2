@@ -22,8 +22,10 @@ class HistoricService {
   }
 
   async getAllRecords() {
-    const data = await Historic.findAll();
-    return data.reverse();
+    const data = await Historic.findAll({
+      order: [['idExam', 'DESC']],
+    });
+    return data;
   }
 
   async getRecordById(idExam) {
